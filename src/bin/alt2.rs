@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     let mut midi_in = MidiInput::new("midir reading input")?;
     let in_port = get_midi_device(&mut midi_in)?;
 
-    let vars: Vars<8> = Vars::new();
+    let vars: Vars<5> = Vars::new();
     run_output(vars.clone());
     run_input(vars, midi_in, in_port)
 }
@@ -116,7 +116,12 @@ impl <const N: usize> Vars<N> {
         for i in 1..N {
             sound = Net64::bin_op(sound, Net64::wrap(self.sound_at(i)), FrameAdd::new());
         }
-        sound
+        let mut net = Net64::new(0, 1);
+        let sound_id = net.push(Box::new(sound));
+        let hp_id = net.push(Box::new(highpass_hz(220.0, 1.0)));
+        net.pipe(sound_id, hp_id);
+        net.pipe_output(hp_id);
+        net
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
