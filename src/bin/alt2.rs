@@ -92,7 +92,8 @@ struct Vars<const N: usize> {
     pitches: [An<Var<f64>>; N],
     velocities: [An<Var<f64>>; N],
     next: ModNumC<usize, N>,
-    pitch2var: BTreeMap<u8,usize>
+    pitch2var: BTreeMap<u8,usize>,
+    recent_pitches: [Option<u8>; N]
 }
 
 impl <const N: usize> Vars<N> {
@@ -101,7 +102,8 @@ impl <const N: usize> Vars<N> {
             pitches: [(); N].map(|_| var(0, 0.0)),
             velocities: [(); N].map(|_| var(1, 0.0)),
             next: ModNumC::new(0),
-            pitch2var: BTreeMap::new()
+            pitch2var: BTreeMap::new(),
+            recent_pitches: [None; N]
         }
     }
 
@@ -123,12 +125,16 @@ impl <const N: usize> Vars<N> {
         self.pitches[self.next.a()].clone().set_value(pitch as f64);
         self.velocities[self.next.a()].clone().set_value(velocity as f64);
         self.pitch2var.insert(pitch, self.next.a());
+        self.recent_pitches[self.next.a()] = Some(pitch);
         self.next += 1;
     }
 
     pub fn off(&mut self, pitch: u8) {
         if let Some(i) = self.pitch2var.remove(&pitch) {
-            self.velocities[i].clone().set_value(0.0);
+            if self.recent_pitches[i] == Some(pitch) {
+                self.recent_pitches[i] = None;
+                self.velocities[i].clone().set_value(0.0);
+            }
         }
     }
 }
