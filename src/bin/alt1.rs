@@ -16,14 +16,18 @@ fn main() {
     }
 }
 
+fn sounder(pitch: u8, velocity: u8) -> Box<dyn AudioUnit64> {
+    Box::new(constant(midi_hz(pitch as f64)) >> triangle() * (velocity as f64 / 127.0))
+}
+
 fn run_synth<T: Sample>(
     device: Device,
     config: StreamConfig,
 ) {
     let sample_rate = config.sample_rate.0 as f64;
-    let mut sound = Net64::wrap(Box::new(constant(midi_hz(60.0)) >> triangle()));
+    let mut sound = Net64::wrap(sounder(60, 100));
     for i in [64, 67, 71, 74, 78, 81] {
-        sound = Net64::bin_op(sound, Net64::wrap(Box::new(constant(midi_hz(i as f64)) >> triangle())), FrameAdd::new());
+        sound = Net64::bin_op(sound, Net64::wrap(sounder(i, i)), FrameAdd::new());
     }
     sound.reset(Some(sample_rate));
     let mut next_value = move || sound.get_stereo();
