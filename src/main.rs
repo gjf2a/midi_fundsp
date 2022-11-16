@@ -8,9 +8,19 @@ use bare_metal_modulo::*;
 use std::collections::BTreeMap;
 use std::{thread, time};
 
-const NUM_TO_USE: usize = 7;
+const NUM_TO_USE: usize = 6;
 
-const PITCHES: [u8; 10] = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76];
+const NOTES: [(u8,u8); 10] = [
+    (60, 127), 
+    (62, 100), 
+    (64, 127),
+    (65, 50), 
+    (67, 80), 
+    (69, 100),
+    (71, 60), 
+    (72, 127), 
+    (74, 100), 
+    (76, 127)];
 
 fn main() -> anyhow::Result<()> {
     let mut vars: Vars<NUM_TO_USE> = Vars::new();
@@ -18,9 +28,9 @@ fn main() -> anyhow::Result<()> {
 
     let rest = time::Duration::from_secs(1);
     thread::sleep(rest);
-    for i in 0..PITCHES.len() {
+    for i in 0..NOTES.len() {
         println!("{i}");
-        vars.on(PITCHES[i], 127);
+        vars.on(NOTES[i].0, NOTES[i].1);
         thread::sleep(rest);
     }
     Ok(())
