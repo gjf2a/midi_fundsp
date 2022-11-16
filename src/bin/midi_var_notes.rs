@@ -13,13 +13,13 @@ fn main() -> anyhow::Result<()> {
     let mut midi_in = MidiInput::new("midir reading input")?;
     let in_port = get_midi_device(&mut midi_in)?;
 
-    let stereo: Stereo<3> = Stereo::new();
-    run_output(stereo.clone());
-    run_input(stereo, midi_in, in_port)
+    let vars: Vars<6> = Vars::new();
+    run_output(vars.clone());
+    run_input(vars, midi_in, in_port)
 }
 
 fn run_input<const N: usize>(
-    mut stereo: Stereo<N>,
+    mut vars: Vars<N>,
     midi_in: MidiInput,
     in_port: MidiInputPort,
 ) -> anyhow::Result<()> {
@@ -36,11 +36,11 @@ fn run_input<const N: usize>(
                         match msg {
                             ChannelVoiceMsg::NoteOn { note, velocity } => {
                                 println!("on: {note} {velocity}");
-                                stereo.on(note, velocity, if note < 60 {StereoSide::Left} else {StereoSide::Right});
+                                vars.on(note, velocity);
                             }
                             ChannelVoiceMsg::NoteOff { note, velocity:_ } => {
                                 println!("off: {note}");
-                                stereo.off(note, if note < 60 {StereoSide::Left} else {StereoSide::Right});
+                                vars.off(note);
                             }
                             _ => {}
                         }
@@ -58,7 +58,7 @@ fn run_input<const N: usize>(
     Ok(())
 }
 
-fn run_output<const N: usize>(stereo: Stereo<N>) {
+fn run_output<const N: usize>(vars: Vars<N>) {
     std::thread::spawn(move || {
         let host = cpal::default_host();
         let device = host
@@ -66,9 +66,9 @@ fn run_output<const N: usize>(stereo: Stereo<N>) {
             .expect("failed to find a default output device");
         let config = device.default_output_config().unwrap();
         match config.sample_format() {
-            SampleFormat::F32 => run_synth::<N, f32>(stereo, device, config.into()),
-            SampleFormat::I16 => run_synth::<N, i16>(stereo, device, config.into()),
-            SampleFormat::U16 => run_synth::<N, u16>(stereo, device, config.into()),
+            SampleFormat::F32 => run_synth::<N, f32>(vars, device, config.into()),
+            SampleFormat::I16 => run_synth::<N, i16>(vars, device, config.into()),
+            SampleFormat::U16 => run_synth::<N, u16>(vars, device, config.into()),
         };
     });
 }
@@ -84,37 +84,6 @@ fn get_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
             midi_in.port_name(&in_ports[0]).unwrap()
         );
         Ok(in_ports[0].clone())
-    }
-}
-
-#[derive(Clone)]
-struct Stereo<const N: usize> {
-    left: Vars<N>,
-    right: Vars<N>
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum StereoSide {Left, Right}
-
-impl <const N: usize> Stereo<N> {
-    pub fn new() -> Self {
-        Self {left: Vars::new(), right: Vars::new()}
-    }
-
-    fn side(&mut self, side: StereoSide) -> &mut Vars<N> {
-        match side {StereoSide::Left => &mut self.left, StereoSide::Right => &mut self.right}
-    }
-
-    pub fn on(&mut self, pitch: u8, velocity: u8, side: StereoSide) {
-        self.side(side).on(pitch, velocity)
-    }
-
-    pub fn off(&mut self, pitch: u8, side: StereoSide) {
-        self.side(side).off(pitch)
-    }
-
-    pub fn sound(&self) -> Net64 {
-        Net64::stack_op(self.left.sound(), self.right.sound())
     }
 }
 
@@ -171,12 +140,12 @@ impl <const N: usize> Vars<N> {
 }
 
 fn run_synth<const N: usize, T: Sample>(
-    stereo: Stereo<N>,
+    vars: Vars<N>,
     device: Device,
     config: StreamConfig,
 ) {
     let sample_rate = config.sample_rate.0 as f64;
-    let mut sound = stereo.sound();
+    let mut sound = vars.sound();
     sound.reset(Some(sample_rate));
     let mut next_value = move || sound.get_stereo();
     let channels = config.channels as usize;
