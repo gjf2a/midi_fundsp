@@ -8,7 +8,7 @@ use bare_metal_modulo::*;
 use std::collections::BTreeMap;
 use std::{thread, time};
 
-const NUM_TO_USE: usize = 7;
+const NUM_TO_USE: usize = 10;
 
 const NOTES: [(u8, u8); 10] = [
     (60, 127),
