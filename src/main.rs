@@ -83,19 +83,6 @@ impl <const N: usize> Vars<N> {
         self.recent_pitches[self.next.a()] = Some(pitch);
         self.next += 1;
     }
-
-    pub fn off(&mut self, pitch: u8) {
-        if let Some(i) = self.pitch2var.remove(&pitch) {
-            if self.recent_pitches[i] == Some(pitch) {
-                self.recent_pitches[i] = None;
-                self.velocities[i].clone().set_value(0.0);
-            }
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        N
-    }
 }
 
 fn run_synth<const N: usize, T: Sample>(
