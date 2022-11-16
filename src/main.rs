@@ -1,26 +1,27 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, Sample, SampleFormat, StreamConfig};
 use fundsp::hacker::*;
-use fundsp::prelude::{AudioUnit64};
+use fundsp::prelude::AudioUnit64;
 
 use bare_metal_modulo::*;
 
 use std::collections::BTreeMap;
 use std::{thread, time};
 
-const NUM_TO_USE: usize = 6;
+const NUM_TO_USE: usize = 7;
 
-const NOTES: [(u8,u8); 10] = [
-    (60, 127), 
-    (62, 100), 
+const NOTES: [(u8, u8); 10] = [
+    (60, 127),
+    (62, 100),
     (64, 127),
-    (65, 50), 
-    (67, 80), 
+    (65, 50),
+    (67, 80),
     (69, 100),
-    (71, 60), 
-    (72, 127), 
-    (74, 100), 
-    (76, 127)];
+    (71, 60),
+    (72, 127),
+    (74, 100),
+    (76, 127),
+];
 
 fn main() -> anyhow::Result<()> {
     let mut vars: Vars<NUM_TO_USE> = Vars::new();
@@ -35,7 +36,6 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-
 
 fn run_output<const N: usize>(vars: Vars<N>) {
     thread::spawn(move || {
@@ -57,25 +57,28 @@ struct Vars<const N: usize> {
     pitches: [An<Var<f64>>; N],
     velocities: [An<Var<f64>>; N],
     next: ModNumC<usize, N>,
-    pitch2var: BTreeMap<u8,usize>,
-    recent_pitches: [Option<u8>; N]
+    pitch2var: BTreeMap<u8, usize>,
+    recent_pitches: [Option<u8>; N],
 }
 
-impl <const N: usize> Vars<N> {
+impl<const N: usize> Vars<N> {
     pub fn new() -> Self {
         Self {
             pitches: [(); N].map(|_| var(0, 0.0)),
             velocities: [(); N].map(|_| var(1, 0.0)),
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
-            recent_pitches: [None; N]
+            recent_pitches: [None; N],
         }
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
         let pitch = self.pitches[i].clone();
         let velocity = self.velocities[i].clone();
-        Box::new(envelope(move |_| midi_hz(pitch.value())) >> triangle() * (envelope(move |_| velocity.value() / 127.0)))
+        Box::new(
+            envelope(move |_| midi_hz(pitch.value()))
+                >> triangle() * (envelope(move |_| velocity.value() / 127.0)),
+        )
     }
 
     pub fn sound(&self) -> Net64 {
@@ -88,18 +91,16 @@ impl <const N: usize> Vars<N> {
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
         self.pitches[self.next.a()].clone().set_value(pitch as f64);
-        self.velocities[self.next.a()].clone().set_value(velocity as f64);
+        self.velocities[self.next.a()]
+            .clone()
+            .set_value(velocity as f64);
         self.pitch2var.insert(pitch, self.next.a());
         self.recent_pitches[self.next.a()] = Some(pitch);
         self.next += 1;
     }
 }
 
-fn run_synth<const N: usize, T: Sample>(
-    vars: Vars<N>,
-    device: Device,
-    config: StreamConfig,
-) {
+fn run_synth<const N: usize, T: Sample>(vars: Vars<N>, device: Device, config: StreamConfig) {
     let sample_rate = config.sample_rate.0 as f64;
     let mut sound = vars.sound();
     sound.reset(Some(sample_rate));
