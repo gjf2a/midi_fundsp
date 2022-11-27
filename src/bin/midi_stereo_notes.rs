@@ -120,8 +120,8 @@ impl <const N: usize> Stereo<N> {
 
 #[derive(Clone)]
 struct Vars<const N: usize> {
-    pitches: [An<Var<f64>>; N],
-    velocities: [An<Var<f64>>; N],
+    pitches: [Shared<f64>; N],
+    velocities: [Shared<f64>; N],
     next: ModNumC<usize, N>,
     pitch2var: BTreeMap<u8,usize>,
     recent_pitches: [Option<u8>; N]
@@ -130,8 +130,8 @@ struct Vars<const N: usize> {
 impl <const N: usize> Vars<N> {
     pub fn new() -> Self {
         Self {
-            pitches: [(); N].map(|_| var(0, 0.0)),
-            velocities: [(); N].map(|_| var(1, 0.0)),
+            pitches: [(); N].map(|_| shared(0.0)),
+            velocities: [(); N].map(|_| shared(0.0)),
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
             recent_pitches: [None; N]
@@ -139,9 +139,7 @@ impl <const N: usize> Vars<N> {
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
-        let pitch = self.pitches[i].clone();
-        let velocity = self.velocities[i].clone();
-        Box::new(envelope(move |_| midi_hz(pitch.value())) >> triangle() * (envelope(move |_| velocity.value() / 127.0)))
+        Box::new(var(&self.pitches[i]) >> triangle() * var(&self.velocities[i]))
     }
 
     pub fn sound(&self) -> Net64 {
@@ -153,8 +151,8 @@ impl <const N: usize> Vars<N> {
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
-        self.pitches[self.next.a()].clone().set_value(pitch as f64);
-        self.velocities[self.next.a()].clone().set_value(velocity as f64);
+        self.pitches[self.next.a()].set_value(midi_hz(pitch as f64));
+        self.velocities[self.next.a()].set_value(velocity as f64 / 127.0);
         self.pitch2var.insert(pitch, self.next.a());
         self.recent_pitches[self.next.a()] = Some(pitch);
         self.next += 1;
@@ -164,7 +162,7 @@ impl <const N: usize> Vars<N> {
         if let Some(i) = self.pitch2var.remove(&pitch) {
             if self.recent_pitches[i] == Some(pitch) {
                 self.recent_pitches[i] = None;
-                self.velocities[i].clone().set_value(0.0);
+                self.velocities[i].set_value(0.0);
             }
         }
     }

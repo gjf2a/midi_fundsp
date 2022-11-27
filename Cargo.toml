@@ -1,12 +1,12 @@
 [package]
-name = "midi_var"
+name = "midi_fundsp"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fundsp = {git = "https://github.com/SamiPerttu/fundsp"}
+fundsp = {git = "https://github.com/gjf2a/fundsp"}
 midir = "0.8"
 cpal = "0.14"
 anyhow = "1"

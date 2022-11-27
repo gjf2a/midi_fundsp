@@ -54,8 +54,8 @@ fn run_output<const N: usize>(vars: Vars<N>) {
 
 #[derive(Clone)]
 struct Vars<const N: usize> {
-    pitches: [An<Var<f64>>; N],
-    velocities: [An<Var<f64>>; N],
+    pitches: [Shared<f64>; N],
+    velocities: [Shared<f64>; N],
     next: ModNumC<usize, N>,
     pitch2var: BTreeMap<u8, usize>,
     recent_pitches: [Option<u8>; N],
@@ -64,8 +64,8 @@ struct Vars<const N: usize> {
 impl<const N: usize> Vars<N> {
     pub fn new() -> Self {
         Self {
-            pitches: [(); N].map(|_| var(0, 0.0)),
-            velocities: [(); N].map(|_| var(1, 0.0)),
+            pitches: [(); N].map(|_| shared(0.0)),
+            velocities: [(); N].map(|_| shared(0.0)),
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
             recent_pitches: [None; N],
@@ -73,9 +73,7 @@ impl<const N: usize> Vars<N> {
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
-        let pitch = self.pitches[i].clone();
-        let velocity = self.velocities[i].clone();
-        Box::new(pitch >> triangle() * velocity)
+        Box::new(var(&self.pitches[i]) >> triangle() * var(&self.velocities[i]))
     }
 
     pub fn sound(&self) -> Net64 {
