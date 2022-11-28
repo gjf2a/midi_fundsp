@@ -5,7 +5,7 @@ use cpal::{
     Device, Sample, SampleFormat, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{midi_hz, clamp01, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var, envelope};
+use fundsp::hacker::{midi_hz, clamp01, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var, envelope, shared};
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
@@ -110,16 +110,23 @@ fn write_data<T: Sample>(
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct SharedMidiState {
     pitch: Shared<f64>,
     velocity: Shared<f64>,
     control: Shared<f64>,
+    pitch_bend: Shared<f64>
+}
+
+impl Default for SharedMidiState {
+    fn default() -> Self {
+        Self { pitch: Default::default(), velocity: Default::default(), control: Default::default(), pitch_bend: shared(1.0) }
+    }
 }
 
 impl SharedMidiState {
-    pub fn pitch_velocity_control_vars(&self) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
-        (var(&self.pitch), var(&self.velocity), var(&self.control))
+    pub fn pitch_bend_velocity_control_vars(&self) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
+        (var(&self.pitch), var(&self.pitch_bend), var(&self.velocity), var(&self.control))
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
@@ -132,9 +139,20 @@ impl SharedMidiState {
     pub fn off(&mut self) {
         self.control.set_value(-1.0);
     }
+
+    pub fn bend(&mut self, bend: u16) {
+        self.pitch_bend.set_value(pitch_bend_factor(bend));
+        println!("{:?}", self.pitch_bend.value());
+    }
 }
 
 pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
+
+/// Algorithm is from here: https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/
+/// Converts MIDI pitch-bend message to +/- 1 semitone.
+fn pitch_bend_factor(bend: u16) -> f64 {
+    2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
+}
 
 #[derive(Clone)]
 pub struct LiveSounds<const N: usize> {
@@ -157,6 +175,7 @@ impl<const N: usize> Player for LiveSounds<N> {
     }
 
     fn decode(&mut self, msg: MidiMsg) {
+        println!("{msg:?}");
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
@@ -164,6 +183,10 @@ impl<const N: usize> Player for LiveSounds<N> {
                 }
                 ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                     self.off(note);
+                }
+                ChannelVoiceMsg::PitchBend { bend } => {
+                    println!("bend {bend}");
+                    self.bend(bend);
                 }
                 _ => {}
             },
@@ -205,6 +228,10 @@ impl<const N: usize> LiveSounds<N> {
             }
             self.pitch2state[pitch as usize] = None;
         }
+    }
+
+    fn bend(&mut self, bend: u16) {
+        self.states[(self.next - 1).a()].bend(bend);
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
@@ -277,24 +304,12 @@ impl<const N: usize> StereoSounds<N> {
         }
     }
 
-    fn side(&mut self, side: StereoSide) -> &mut LiveSounds<N> {
-        &mut self.sounds[side.i()]
-    }
-
-    pub fn note_on(&mut self, pitch: u8, velocity: u8, side: StereoSide) {
-        self.side(side).on(pitch, velocity)
-    }
-
-    pub fn note_off(&mut self, pitch: u8, side: StereoSide) {
-        self.side(side).off(pitch)
-    }
-
     pub fn all_off(&mut self) {
         self.sounds.iter_mut().for_each(|s| s.all_off());
     }
 }
 
 pub fn simple_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    let (pitch, velocity, control) = shared_midi_state.pitch_velocity_control_vars();
-    Box::new(pitch >> triangle() * velocity * envelope(move |_| clamp01(control.value())))
+    let (pitch, bend, velocity, control) = shared_midi_state.pitch_bend_velocity_control_vars();
+    Box::new(bend * pitch >> triangle() * velocity * envelope(move |_| clamp01(control.value())))
 }
