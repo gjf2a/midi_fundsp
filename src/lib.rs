@@ -1,16 +1,17 @@
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use bare_metal_modulo::*;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Sample, SampleFormat, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{
-    midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var,
-};
+use fundsp::hacker::{midi_hz, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var};
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
+
+pub const MAX_MIDI_VALUE: u8 = 127;
+const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<MidiMsg>>,
@@ -45,72 +46,50 @@ pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInpu
     }
 }
 
-pub trait Player {
+pub trait Player: Send + Sync {
+    type Msg;
+
     fn sound(&self) -> Net64;
-    fn on(&mut self, pitch: u8, velocity: u8);
-    fn off(&mut self, pitch: u8);
 
-    fn listen(&mut self, midi_msgs: Arc<SegQueue<MidiMsg>>) {
-        loop {
-            if let Some(msg) = midi_msgs.pop() {
-                self.decode(msg);
-            }
+    fn listen(&mut self, midi_msgs: Arc<SegQueue<Self::Msg>>);
+
+    fn run_output(&mut self, midi_msgs: Arc<SegQueue<Self::Msg>>) -> anyhow::Result<()> {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or(anyhow!("failed to find a default output device"))?;
+        let config = device.default_output_config()?;
+        match config.sample_format() {
+            SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into()),
+            SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into()),
+            SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into()),
         }
     }
 
-    fn decode(&mut self, msg: MidiMsg) {
-        match msg {
-            MidiMsg::ChannelVoice { channel: _, msg } => match msg {
-                ChannelVoiceMsg::NoteOn { note, velocity } => {
-                    self.on(note, velocity);
-                }
-                ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                    self.off(note);
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-    }
-}
-
-pub fn run_output<P: Player + Send + Sync>(player: P, midi_msgs: Arc<SegQueue<MidiMsg>>) {
-    let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .expect("failed to find a default output device");
-    let config = device.default_output_config().unwrap();
-    match config.sample_format() {
-        SampleFormat::F32 => run_synth::<P, f32>(player, midi_msgs, device, config.into()),
-        SampleFormat::I16 => run_synth::<P, i16>(player, midi_msgs, device, config.into()),
-        SampleFormat::U16 => run_synth::<P, u16>(player, midi_msgs, device, config.into()),
-    };
-}
-
-fn run_synth<P: Player, T: Sample>(
-    mut player: P,
-    midi_msgs: Arc<SegQueue<MidiMsg>>,
-    device: Device,
-    config: StreamConfig,
-) {
-    let sample_rate = config.sample_rate.0 as f64;
-    let mut sound = player.sound();
-    sound.reset(Some(sample_rate));
-    let mut next_value = move || sound.get_stereo();
-    let channels = config.channels as usize;
-    let err_fn = |err| eprintln!("an error occurred on stream: {err}");
-    let stream = device
-        .build_output_stream(
+    fn run_synth<T: Sample>(
+        &mut self,
+        midi_msgs: Arc<SegQueue<Self::Msg>>,
+        device: Device,
+        config: StreamConfig,
+    ) -> anyhow::Result<()> {
+        let sample_rate = config.sample_rate.0 as f64;
+        let mut sound = self.sound();
+        sound.reset(Some(sample_rate));
+        let mut next_value = move || sound.get_stereo();
+        let channels = config.channels as usize;
+        let err_fn = |err| eprintln!("an error occurred on stream: {err}");
+        let stream = device.build_output_stream(
             &config,
             move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
                 write_data(data, channels, &mut next_value)
             },
             err_fn,
-        )
-        .unwrap();
+        )?;
 
-    stream.play().unwrap();
-    player.listen(midi_msgs);
+        stream.play()?;
+        self.listen(midi_msgs);
+        Ok(())
+    }
 }
 
 fn write_data<T: Sample>(
@@ -129,7 +108,7 @@ fn write_data<T: Sample>(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SharedMidiState {
     pitch: Shared<f64>,
     velocity: Shared<f64>,
@@ -143,22 +122,13 @@ impl SharedMidiState {
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
         self.pitch.set_value(midi_hz(pitch as f64));
-        self.velocity.set_value(velocity as f64 / 127.0);
+        self.velocity
+            .set_value(velocity as f64 / MAX_MIDI_VALUE as f64);
         self.control.set_value(1.0);
     }
 
     pub fn off(&mut self) {
         self.control.set_value(0.0);
-    }
-}
-
-impl Default for SharedMidiState {
-    fn default() -> Self {
-        Self {
-            pitch: shared(0.0),
-            velocity: shared(0.0),
-            control: shared(0.0),
-        }
     }
 }
 
@@ -168,12 +138,14 @@ pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + S
 pub struct LiveSounds<const N: usize> {
     states: [SharedMidiState; N],
     next: ModNumC<usize, N>,
-    pitch2var: BTreeMap<u8, usize>,
+    pitch2state: [Option<usize>; NUM_MIDI_VALUES],
     recent_pitches: [Option<u8>; N],
     synth_func: Arc<SynthFunc>,
 }
 
 impl<const N: usize> Player for LiveSounds<N> {
+    type Msg = MidiMsg;
+
     fn sound(&self) -> Net64 {
         let mut sound = Net64::wrap(self.sound_at(0));
         for i in 1..N {
@@ -182,17 +154,10 @@ impl<const N: usize> Player for LiveSounds<N> {
         sound
     }
 
-    fn on(&mut self, pitch: u8, velocity: u8) {
-        self.states[self.next.a()].on(pitch, velocity);
-        self.pitch2var.insert(pitch, self.next.a());
-        self.recent_pitches[self.next.a()] = Some(pitch);
-        self.next += 1;
-    }
-
-    fn off(&mut self, pitch: u8) {
-        if let Some(i) = self.pitch2var.remove(&pitch) {
-            if self.recent_pitches[i] == Some(pitch) {
-                self.release(i);
+    fn listen(&mut self, midi_msgs: Arc<SegQueue<MidiMsg>>) {
+        loop {
+            if let Some(msg) = midi_msgs.pop() {
+                self.decode(msg);
             }
         }
     }
@@ -203,9 +168,40 @@ impl<const N: usize> LiveSounds<N> {
         Self {
             states: [(); N].map(|_| SharedMidiState::default()),
             next: ModNumC::new(0),
-            pitch2var: BTreeMap::new(),
+            pitch2state: [None; NUM_MIDI_VALUES],
             recent_pitches: [None; N],
             synth_func,
+        }
+    }
+
+    fn decode(&mut self, msg: MidiMsg) {
+        match msg {
+            MidiMsg::ChannelVoice { channel: _, msg } => match msg {
+                ChannelVoiceMsg::NoteOn { note, velocity } => {
+                    self.on(note, velocity);
+                }
+                ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                    self.off(note);
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    fn on(&mut self, pitch: u8, velocity: u8) {
+        self.states[self.next.a()].on(pitch, velocity);
+        self.pitch2state[pitch as usize] = Some(self.next.a());
+        self.recent_pitches[self.next.a()] = Some(pitch);
+        self.next += 1;
+    }
+
+    fn off(&mut self, pitch: u8) {
+        if let Some(i) = self.pitch2state[pitch as usize] {
+            if self.recent_pitches[i] == Some(pitch) {
+                self.release(i);
+            }
+            self.pitch2state[pitch as usize] = None;
         }
     }
 

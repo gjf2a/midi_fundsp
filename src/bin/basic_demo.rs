@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use midi_fundsp::{
-    get_first_midi_device, run_output, simple_triangle, start_input_thread, LiveSounds,
-};
+use midi_fundsp::{get_first_midi_device, simple_triangle, start_input_thread, LiveSounds, Player};
 use midir::MidiInput;
 
 fn main() -> anyhow::Result<()> {
@@ -11,7 +9,7 @@ fn main() -> anyhow::Result<()> {
     let in_port = get_first_midi_device(&mut midi_in)?;
     let midi_msgs = Arc::new(SegQueue::new());
     start_input_thread(midi_msgs.clone(), midi_in, in_port);
-    let player = LiveSounds::<10>::new(Arc::new(simple_triangle));
-    run_output(player, midi_msgs);
+    let mut player = LiveSounds::<10>::new(Arc::new(simple_triangle));
+    player.run_output(midi_msgs)?;
     Ok(())
 }
