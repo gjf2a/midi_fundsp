@@ -142,7 +142,6 @@ impl SharedMidiState {
 
     pub fn bend(&mut self, bend: u16) {
         self.pitch_bend.set_value(pitch_bend_factor(bend));
-        println!("{:?}", self.pitch_bend.value());
     }
 }
 
@@ -175,7 +174,6 @@ impl<const N: usize> Player for LiveSounds<N> {
     }
 
     fn decode(&mut self, msg: MidiMsg) {
-        println!("{msg:?}");
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
@@ -185,7 +183,6 @@ impl<const N: usize> Player for LiveSounds<N> {
                     self.off(note);
                 }
                 ChannelVoiceMsg::PitchBend { bend } => {
-                    println!("bend {bend}");
                     self.bend(bend);
                 }
                 _ => {}
@@ -231,7 +228,9 @@ impl<const N: usize> LiveSounds<N> {
     }
 
     fn bend(&mut self, bend: u16) {
-        self.states[(self.next - 1).a()].bend(bend);
+        for state in self.states.iter_mut() {
+            state.bend(bend);
+        }
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
