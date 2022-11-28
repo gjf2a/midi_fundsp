@@ -51,6 +51,8 @@ pub trait Player: Send + Sync {
 
     fn sound(&self) -> Net64;
 
+    fn decode(&mut self, msg: Self::Msg);
+
     fn listen(&mut self, midi_msgs: Arc<SegQueue<Self::Msg>>);
 
     fn run_output(&mut self, midi_msgs: Arc<SegQueue<Self::Msg>>) -> anyhow::Result<()> {
@@ -154,6 +156,21 @@ impl<const N: usize> Player for LiveSounds<N> {
         sound
     }
 
+    fn decode(&mut self, msg: MidiMsg) {
+        match msg {
+            MidiMsg::ChannelVoice { channel: _, msg } => match msg {
+                ChannelVoiceMsg::NoteOn { note, velocity } => {
+                    self.on(note, velocity);
+                }
+                ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                    self.off(note);
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
     fn listen(&mut self, midi_msgs: Arc<SegQueue<MidiMsg>>) {
         loop {
             if let Some(msg) = midi_msgs.pop() {
@@ -171,21 +188,6 @@ impl<const N: usize> LiveSounds<N> {
             pitch2state: [None; NUM_MIDI_VALUES],
             recent_pitches: [None; N],
             synth_func,
-        }
-    }
-
-    fn decode(&mut self, msg: MidiMsg) {
-        match msg {
-            MidiMsg::ChannelVoice { channel: _, msg } => match msg {
-                ChannelVoiceMsg::NoteOn { note, velocity } => {
-                    self.on(note, velocity);
-                }
-                ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                    self.off(note);
-                }
-                _ => {}
-            },
-            _ => {}
         }
     }
 
@@ -218,6 +220,77 @@ impl<const N: usize> LiveSounds<N> {
         for i in 0..N {
             self.release(i);
         }
+    }
+}
+
+pub struct StereoSounds<const N: usize> {
+    sounds: [LiveSounds<N>; 2],
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum StereoSide {
+    Left,
+    Right,
+}
+
+pub struct StereoMsg {
+    pub midi_msg: MidiMsg,
+    pub side: StereoSide,
+}
+
+impl<const N: usize> Player for StereoSounds<N> {
+    type Msg = StereoMsg;
+
+    fn sound(&self) -> Net64 {
+        Net64::stack_op(
+            self.sounds[StereoSide::Left.i()].sound(),
+            self.sounds[StereoSide::Right.i()].sound(),
+        )
+    }
+
+    fn decode(&mut self, msg: Self::Msg) {
+        self.sounds[msg.side.i()].decode(msg.midi_msg);
+    }
+
+    fn listen(&mut self, midi_msgs: Arc<SegQueue<Self::Msg>>) {
+        loop {
+            if let Some(msg) = midi_msgs.pop() {
+                self.decode(msg);
+            }
+        }
+    }
+}
+
+impl StereoSide {
+    pub fn i(&self) -> usize {
+        *self as usize
+    }
+}
+
+impl<const N: usize> StereoSounds<N> {
+    pub fn new(left_synth_func: Arc<SynthFunc>, right_synth_func: Arc<SynthFunc>) -> Self {
+        Self {
+            sounds: [
+                LiveSounds::new(left_synth_func),
+                LiveSounds::new(right_synth_func),
+            ],
+        }
+    }
+
+    fn side(&mut self, side: StereoSide) -> &mut LiveSounds<N> {
+        &mut self.sounds[side.i()]
+    }
+
+    pub fn note_on(&mut self, pitch: u8, velocity: u8, side: StereoSide) {
+        self.side(side).on(pitch, velocity)
+    }
+
+    pub fn note_off(&mut self, pitch: u8, side: StereoSide) {
+        self.side(side).off(pitch)
+    }
+
+    pub fn all_off(&mut self) {
+        self.sounds.iter_mut().for_each(|s| s.all_off());
     }
 }
 
