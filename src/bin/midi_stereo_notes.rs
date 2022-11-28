@@ -1,12 +1,12 @@
+use anyhow::bail;
+use bare_metal_modulo::*;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, Sample, SampleFormat, StreamConfig};
 use fundsp::hacker::*;
-use fundsp::prelude::{AudioUnit64};
+use fundsp::prelude::AudioUnit64;
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::prelude::*;
-use bare_metal_modulo::*;
-use anyhow::bail;
 use std::collections::BTreeMap;
 
 fn main() -> anyhow::Result<()> {
@@ -32,19 +32,32 @@ fn run_input<const N: usize>(
             move |_stamp, message, _| {
                 let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
                 match msg {
-                    MidiMsg::ChannelVoice { channel:_, msg } => {
-                        match msg {
-                            ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                println!("on: {note} {velocity}");
-                                stereo.on(note, velocity, if note < 60 {StereoSide::Left} else {StereoSide::Right});
-                            }
-                            ChannelVoiceMsg::NoteOff { note, velocity:_ } => {
-                                println!("off: {note}");
-                                stereo.off(note, if note < 60 {StereoSide::Left} else {StereoSide::Right});
-                            }
-                            _ => {}
+                    MidiMsg::ChannelVoice { channel: _, msg } => match msg {
+                        ChannelVoiceMsg::NoteOn { note, velocity } => {
+                            println!("on: {note} {velocity}");
+                            stereo.on(
+                                note,
+                                velocity,
+                                if note < 60 {
+                                    StereoSide::Left
+                                } else {
+                                    StereoSide::Right
+                                },
+                            );
                         }
-                    }
+                        ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                            println!("off: {note}");
+                            stereo.off(
+                                note,
+                                if note < 60 {
+                                    StereoSide::Left
+                                } else {
+                                    StereoSide::Right
+                                },
+                            );
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 }
             },
@@ -90,19 +103,28 @@ fn get_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
 #[derive(Clone)]
 struct Stereo<const N: usize> {
     left: Vars<N>,
-    right: Vars<N>
+    right: Vars<N>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-enum StereoSide {Left, Right}
+enum StereoSide {
+    Left,
+    Right,
+}
 
-impl <const N: usize> Stereo<N> {
+impl<const N: usize> Stereo<N> {
     pub fn new() -> Self {
-        Self {left: Vars::new(), right: Vars::new()}
+        Self {
+            left: Vars::new(),
+            right: Vars::new(),
+        }
     }
 
     fn side(&mut self, side: StereoSide) -> &mut Vars<N> {
-        match side {StereoSide::Left => &mut self.left, StereoSide::Right => &mut self.right}
+        match side {
+            StereoSide::Left => &mut self.left,
+            StereoSide::Right => &mut self.right,
+        }
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8, side: StereoSide) {
@@ -123,18 +145,18 @@ struct Vars<const N: usize> {
     pitches: [Shared<f64>; N],
     velocities: [Shared<f64>; N],
     next: ModNumC<usize, N>,
-    pitch2var: BTreeMap<u8,usize>,
-    recent_pitches: [Option<u8>; N]
+    pitch2var: BTreeMap<u8, usize>,
+    recent_pitches: [Option<u8>; N],
 }
 
-impl <const N: usize> Vars<N> {
+impl<const N: usize> Vars<N> {
     pub fn new() -> Self {
         Self {
             pitches: [(); N].map(|_| shared(0.0)),
             velocities: [(); N].map(|_| shared(0.0)),
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
-            recent_pitches: [None; N]
+            recent_pitches: [None; N],
         }
     }
 
@@ -168,11 +190,7 @@ impl <const N: usize> Vars<N> {
     }
 }
 
-fn run_synth<const N: usize, T: Sample>(
-    stereo: Stereo<N>,
-    device: Device,
-    config: StreamConfig,
-) {
+fn run_synth<const N: usize, T: Sample>(stereo: Stereo<N>, device: Device, config: StreamConfig) {
     let sample_rate = config.sample_rate.0 as f64;
     let mut sound = stereo.sound();
     sound.reset(Some(sample_rate));

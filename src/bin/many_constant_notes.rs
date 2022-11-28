@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, Sample, SampleFormat, StreamConfig};
 use fundsp::hacker::*;
-use fundsp::prelude::{AudioUnit64};
+use fundsp::prelude::AudioUnit64;
 
 fn main() {
     let host = cpal::default_host();
@@ -20,10 +20,7 @@ fn sounder(pitch: u8, velocity: u8) -> Box<dyn AudioUnit64> {
     Box::new(constant(midi_hz(pitch as f64)) >> triangle() * (velocity as f64 / 127.0))
 }
 
-fn run_synth<T: Sample>(
-    device: Device,
-    config: StreamConfig,
-) {
+fn run_synth<T: Sample>(device: Device, config: StreamConfig) {
     let sample_rate = config.sample_rate.0 as f64;
     let mut sound = Net64::wrap(sounder(60, 100));
     for i in [64, 67, 71, 74, 78, 81] {

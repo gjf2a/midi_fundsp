@@ -1,11 +1,16 @@
 use anyhow::bail;
 use bare_metal_modulo::*;
-use cpal::{SampleFormat, Sample, Device, StreamConfig, traits::{HostTrait, DeviceTrait, StreamTrait}};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    Device, Sample, SampleFormat, StreamConfig,
+};
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{Shared, Net64, AudioUnit64, shared, var, An, Var, FrameAdd, midi_hz, triangle};
-use midi_msg::{MidiMsg, ChannelVoiceMsg};
-use midir::{MidiInput, MidiInputPort, Ignore};
-use std::{sync::Arc, collections::BTreeMap};
+use fundsp::hacker::{
+    midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var,
+};
+use midi_msg::{ChannelVoiceMsg, MidiMsg};
+use midir::{Ignore, MidiInput, MidiInputPort};
+use std::{collections::BTreeMap, sync::Arc};
 
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<MidiMsg>>,
@@ -14,16 +19,16 @@ pub fn start_input_thread(
 ) {
     std::thread::spawn(move || {
         let _conn_in = midi_in
-        .connect(
-            &in_port,
-            "midir-read-input",
-            move |_stamp, message, _| {
-                let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-                midi_msgs.push(msg);
-            },
-            (),
-        )
-        .unwrap();
+            .connect(
+                &in_port,
+                "midir-read-input",
+                move |_stamp, message, _| {
+                    let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
+                    midi_msgs.push(msg);
+                },
+                (),
+            )
+            .unwrap();
         loop {}
     });
 }
@@ -61,23 +66,21 @@ pub trait Player {
 
     fn decode(&mut self, msg: MidiMsg) {
         match msg {
-            MidiMsg::ChannelVoice { channel:_, msg } => {
-                match msg {
-                    ChannelVoiceMsg::NoteOn { note, velocity } => {
-                        self.on(note, velocity);
-                    }
-                    ChannelVoiceMsg::NoteOff { note, velocity:_ } => {
-                        self.off(note);
-                    }
-                    _ => {}
+            MidiMsg::ChannelVoice { channel: _, msg } => match msg {
+                ChannelVoiceMsg::NoteOn { note, velocity } => {
+                    self.on(note, velocity);
                 }
-            }
+                ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                    self.off(note);
+                }
+                _ => {}
+            },
             _ => {}
         }
     }
 }
 
-pub fn run_output<P:Player+Send+Sync>(player: P, midi_msgs: Arc<SegQueue<MidiMsg>>) {
+pub fn run_output<P: Player + Send + Sync>(player: P, midi_msgs: Arc<SegQueue<MidiMsg>>) {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -90,7 +93,7 @@ pub fn run_output<P:Player+Send+Sync>(player: P, midi_msgs: Arc<SegQueue<MidiMsg
     };
 }
 
-fn run_synth<P:Player, T: Sample>(
+fn run_synth<P: Player, T: Sample>(
     mut player: P,
     midi_msgs: Arc<SegQueue<MidiMsg>>,
     device: Device,
@@ -140,10 +143,11 @@ pub struct LiveSounds<const N: usize> {
     next: ModNumC<usize, N>,
     pitch2var: BTreeMap<u8, usize>,
     recent_pitches: [Option<u8>; N],
-    synth_func: Arc<dyn Fn(An<Var<f64>>,An<Var<f64>>,An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync>,
+    synth_func:
+        Arc<dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync>,
 }
 
-impl <const N: usize> Player for LiveSounds<N> {
+impl<const N: usize> Player for LiveSounds<N> {
     fn sound(&self) -> Net64 {
         let mut sound = Net64::wrap(self.sound_at(0));
         for i in 1..N {
@@ -170,9 +174,12 @@ impl <const N: usize> Player for LiveSounds<N> {
     }
 }
 
-
-impl <const N: usize> LiveSounds<N> {
-    pub fn new(synth_func: Arc<dyn Fn(An<Var<f64>>,An<Var<f64>>,An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync>) -> Self {
+impl<const N: usize> LiveSounds<N> {
+    pub fn new(
+        synth_func: Arc<
+            dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync,
+        >,
+    ) -> Self {
         Self {
             pitches: [(); N].map(|_| shared(0.0)),
             velocities: [(); N].map(|_| shared(0.0)),
@@ -180,12 +187,16 @@ impl <const N: usize> LiveSounds<N> {
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
             recent_pitches: [None; N],
-            synth_func
+            synth_func,
         }
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
-        (self.synth_func)(var(&self.pitches[i]), var(&self.velocities[i]), var(&self.controls[i]))
+        (self.synth_func)(
+            var(&self.pitches[i]),
+            var(&self.velocities[i]),
+            var(&self.controls[i]),
+        )
     }
 
     fn release(&mut self, i: usize) {
@@ -200,6 +211,10 @@ impl <const N: usize> LiveSounds<N> {
     }
 }
 
-pub fn simple_triangle(pitch: An<Var<f64>>, velocity: An<Var<f64>>, control: An<Var<f64>>) -> Box<dyn AudioUnit64> {
+pub fn simple_triangle(
+    pitch: An<Var<f64>>,
+    velocity: An<Var<f64>>,
+    control: An<Var<f64>>,
+) -> Box<dyn AudioUnit64> {
     Box::new(pitch >> triangle() * velocity * control)
 }
