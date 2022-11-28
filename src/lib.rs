@@ -135,6 +135,9 @@ fn write_data<T: Sample>(
     }
 }
 
+pub type SynthFunc =
+    dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync;
+
 #[derive(Clone)]
 pub struct LiveSounds<const N: usize> {
     pitches: [Shared<f64>; N],
@@ -143,8 +146,7 @@ pub struct LiveSounds<const N: usize> {
     next: ModNumC<usize, N>,
     pitch2var: BTreeMap<u8, usize>,
     recent_pitches: [Option<u8>; N],
-    synth_func:
-        Arc<dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync>,
+    synth_func: Arc<SynthFunc>,
 }
 
 impl<const N: usize> Player for LiveSounds<N> {
@@ -175,11 +177,7 @@ impl<const N: usize> Player for LiveSounds<N> {
 }
 
 impl<const N: usize> LiveSounds<N> {
-    pub fn new(
-        synth_func: Arc<
-            dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync,
-        >,
-    ) -> Self {
+    pub fn new(synth_func: Arc<SynthFunc>) -> Self {
         Self {
             pitches: [(); N].map(|_| shared(0.0)),
             velocities: [(); N].map(|_| shared(0.0)),
