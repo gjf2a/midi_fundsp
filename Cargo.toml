@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fundsp = {git = "https://github.com/gjf2a/fundsp"}
+fundsp = "0.10"
 midir = "0.8"
 cpal = "0.14"
 anyhow = "1"

@@ -5,7 +5,7 @@ use cpal::{
     Device, Sample, SampleFormat, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{midi_hz, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var};
+use fundsp::hacker::{midi_hz, clamp01, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var, envelope};
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
@@ -130,7 +130,7 @@ impl SharedMidiState {
     }
 
     pub fn off(&mut self) {
-        self.control.set_value(0.0);
+        self.control.set_value(-1.0);
     }
 }
 
@@ -296,5 +296,5 @@ impl<const N: usize> StereoSounds<N> {
 
 pub fn simple_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     let (pitch, velocity, control) = shared_midi_state.pitch_velocity_control_vars();
-    Box::new(pitch >> triangle() * velocity * control)
+    Box::new(pitch >> triangle() * velocity * envelope(move |_| clamp01(control.value())))
 }
