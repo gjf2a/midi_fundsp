@@ -39,16 +39,10 @@ pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInpu
     if in_ports.len() == 0 {
         bail!("No MIDI devices attached")
     } else {
-        println!(
-            "Chose MIDI device {}",
-            midi_in.port_name(&in_ports[0]).unwrap()
-        );
+        let device_name = midi_in.port_name(&in_ports[0])?;
+        println!("Chose MIDI device {device_name}");
         Ok(in_ports[0].clone())
     }
-}
-
-pub fn velocity2volume(velocity: u8) -> f64 {
-    velocity as f64 / 127.0
 }
 
 pub trait Player {
@@ -135,14 +129,44 @@ fn write_data<T: Sample>(
     }
 }
 
-pub type SynthFunc =
-    dyn Fn(An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) -> Box<dyn AudioUnit64> + Send + Sync;
+#[derive(Clone)]
+pub struct SharedMidiState {
+    pitch: Shared<f64>,
+    velocity: Shared<f64>,
+    control: Shared<f64>,
+}
+
+impl SharedMidiState {
+    pub fn pitch_velocity_control_vars(&self) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
+        (var(&self.pitch), var(&self.velocity), var(&self.control))
+    }
+
+    pub fn on(&mut self, pitch: u8, velocity: u8) {
+        self.pitch.set_value(midi_hz(pitch as f64));
+        self.velocity.set_value(velocity as f64 / 127.0);
+        self.control.set_value(1.0);
+    }
+
+    pub fn off(&mut self) {
+        self.control.set_value(0.0);
+    }
+}
+
+impl Default for SharedMidiState {
+    fn default() -> Self {
+        Self {
+            pitch: shared(0.0),
+            velocity: shared(0.0),
+            control: shared(0.0),
+        }
+    }
+}
+
+pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
 
 #[derive(Clone)]
 pub struct LiveSounds<const N: usize> {
-    pitches: [Shared<f64>; N],
-    velocities: [Shared<f64>; N],
-    controls: [Shared<f64>; N],
+    states: [SharedMidiState; N],
     next: ModNumC<usize, N>,
     pitch2var: BTreeMap<u8, usize>,
     recent_pitches: [Option<u8>; N],
@@ -159,9 +183,7 @@ impl<const N: usize> Player for LiveSounds<N> {
     }
 
     fn on(&mut self, pitch: u8, velocity: u8) {
-        self.pitches[self.next.a()].set_value(midi_hz(pitch as f64));
-        self.velocities[self.next.a()].set_value(velocity2volume(velocity));
-        self.controls[self.next.a()].set_value(1.0);
+        self.states[self.next.a()].on(pitch, velocity);
         self.pitch2var.insert(pitch, self.next.a());
         self.recent_pitches[self.next.a()] = Some(pitch);
         self.next += 1;
@@ -179,9 +201,7 @@ impl<const N: usize> Player for LiveSounds<N> {
 impl<const N: usize> LiveSounds<N> {
     pub fn new(synth_func: Arc<SynthFunc>) -> Self {
         Self {
-            pitches: [(); N].map(|_| shared(0.0)),
-            velocities: [(); N].map(|_| shared(0.0)),
-            controls: [(); N].map(|_| shared(0.0)),
+            states: [(); N].map(|_| SharedMidiState::default()),
             next: ModNumC::new(0),
             pitch2var: BTreeMap::new(),
             recent_pitches: [None; N],
@@ -190,16 +210,12 @@ impl<const N: usize> LiveSounds<N> {
     }
 
     pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
-        (self.synth_func)(
-            var(&self.pitches[i]),
-            var(&self.velocities[i]),
-            var(&self.controls[i]),
-        )
+        (self.synth_func)(&self.states[i])
     }
 
     fn release(&mut self, i: usize) {
         self.recent_pitches[i] = None;
-        self.controls[i].set_value(0.0);
+        self.states[i].off();
     }
 
     pub fn all_off(&mut self) {
@@ -209,10 +225,7 @@ impl<const N: usize> LiveSounds<N> {
     }
 }
 
-pub fn simple_triangle(
-    pitch: An<Var<f64>>,
-    velocity: An<Var<f64>>,
-    control: An<Var<f64>>,
-) -> Box<dyn AudioUnit64> {
+pub fn simple_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    let (pitch, velocity, control) = shared_midi_state.pitch_velocity_control_vars();
     Box::new(pitch >> triangle() * velocity * control)
 }
