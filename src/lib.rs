@@ -7,14 +7,14 @@ use cpal::{
 use crossbeam_queue::SegQueue;
 use fundsp::{
     hacker::{
-        adsr_live, clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd,
-        Net64, Shared, Var, pulse, envelope2, lerp11, sin_hz
+        adsr_live, clamp01, envelope, envelope2, lerp11, midi_hz, pulse, shared, sin_hz, triangle,
+        var, An, AudioUnit64, FrameAdd, Net64, Shared, Var,
     },
     prelude::FrameMul,
 };
-use midi_msg::{ChannelVoiceMsg, MidiMsg};
+use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
-use std::{sync::Arc, fmt::Debug};
+use std::{fmt::Debug, sync::Arc};
 
 pub const MAX_MIDI_VALUE: u8 = 127;
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
@@ -148,9 +148,25 @@ impl<const N: usize> StereoSynth<N> {
 
     fn warm_up(midi_msgs: Arc<SegQueue<SynthMsg>>) {
         for _ in 0..N {
-            midi_msgs.push(SynthMsg::Midi(MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 0, velocity: 0 } }, Speaker::Both));
-            midi_msgs.push(SynthMsg::Midi(MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 0, velocity: 0 } }, Speaker::Both));
+            midi_msgs.push(Self::warm_up_msg(ChannelVoiceMsg::NoteOn {
+                note: 0,
+                velocity: 0,
+            }));
+            midi_msgs.push(Self::warm_up_msg(ChannelVoiceMsg::NoteOff {
+                note: 0,
+                velocity: 0,
+            }));
         }
+    }
+
+    fn warm_up_msg(msg: ChannelVoiceMsg) -> SynthMsg {
+        SynthMsg::Midi(
+            MidiMsg::ChannelVoice {
+                channel: Channel::Ch1,
+                msg,
+            },
+            Speaker::Both,
+        )
     }
 
     fn handle_messages(&mut self, running: &mut bool, midi_msgs: Arc<SegQueue<SynthMsg>>) {
@@ -244,7 +260,12 @@ impl Default for SharedMidiState {
 
 impl Debug for SharedMidiState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SharedMidiState").field("pitch", &self.pitch.value()).field("velocity", &self.velocity.value()).field("control", &self.control.value()).field("pitch_bend", &self.pitch_bend.value()).finish()
+        f.debug_struct("SharedMidiState")
+            .field("pitch", &self.pitch.value())
+            .field("velocity", &self.velocity.value())
+            .field("control", &self.control.value())
+            .field("pitch_bend", &self.pitch_bend.value())
+            .finish()
     }
 }
 
@@ -422,16 +443,29 @@ pub fn adsr_sound(
     )
 }
 
-pub fn adsr_timed_sound(shared_midi_state: &SharedMidiState, adsr: Adsr, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
+pub fn adsr_timed_sound(
+    shared_midi_state: &SharedMidiState,
+    adsr: Adsr,
+    synth: Box<dyn AudioUnit64>,
+) -> Box<dyn AudioUnit64> {
     let (attack, decay, sustain, release) = adsr;
     let control1 = shared_midi_state.control_var();
     let control2 = control1.clone();
-    Box::new(Net64::bin_op(Net64::pipe_op(
-        Net64::stack_op(shared_midi_state.bent_pitch(), 
-        Net64::wrap(Box::new(control1 >> adsr_live(attack, decay, sustain, release)))), 
-        Net64::wrap(synth)),
-        shared_midi_state.volume(Box::new(control2 >> adsr_live(attack, decay, sustain, release))),
-        FrameMul::new()))
+    Box::new(Net64::bin_op(
+        Net64::pipe_op(
+            Net64::stack_op(
+                shared_midi_state.bent_pitch(),
+                Net64::wrap(Box::new(
+                    control1 >> adsr_live(attack, decay, sustain, release),
+                )),
+            ),
+            Net64::wrap(synth),
+        ),
+        shared_midi_state.volume(Box::new(
+            control2 >> adsr_live(attack, decay, sustain, release),
+        )),
+        FrameMul::new(),
+    ))
 }
 
 pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
@@ -443,5 +477,9 @@ pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 }
 
 pub fn pulse2(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    adsr_sound(shared_midi_state, Box::new(envelope2(move |t, p| (p, lerp11(0.01, 0.99, sin_hz(0.05, t)))) >> pulse()), (0.1, 0.2, 0.4, 0.4))
+    adsr_sound(
+        shared_midi_state,
+        Box::new(envelope2(move |t, p| (p, lerp11(0.01, 0.99, sin_hz(0.05, t)))) >> pulse()),
+        (0.1, 0.2, 0.4, 0.4),
+    )
 }
