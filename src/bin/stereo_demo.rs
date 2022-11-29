@@ -20,6 +20,15 @@ fn main() -> anyhow::Result<()> {
             if let Some(midi_msg) = midi_msgs.pop() {
                 if let Some(side) = side_from_pitch(&midi_msg) {
                     stereo_msgs.push(StereoMsg { midi_msg, side });
+                } else {
+                    stereo_msgs.push(StereoMsg {
+                        midi_msg: midi_msg.clone(),
+                        side: StereoSide::Left,
+                    });
+                    stereo_msgs.push(StereoMsg {
+                        midi_msg,
+                        side: StereoSide::Right,
+                    });
                 }
             }
         });

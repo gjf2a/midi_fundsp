@@ -5,7 +5,10 @@ use cpal::{
     Device, Sample, SampleFormat, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{midi_hz, clamp01, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var, envelope, shared};
+use fundsp::hacker::{
+    clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared,
+    Var,
+};
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
@@ -115,18 +118,30 @@ pub struct SharedMidiState {
     pitch: Shared<f64>,
     velocity: Shared<f64>,
     control: Shared<f64>,
-    pitch_bend: Shared<f64>
+    pitch_bend: Shared<f64>,
 }
 
 impl Default for SharedMidiState {
     fn default() -> Self {
-        Self { pitch: Default::default(), velocity: Default::default(), control: Default::default(), pitch_bend: shared(1.0) }
+        Self {
+            pitch: Default::default(),
+            velocity: Default::default(),
+            control: Default::default(),
+            pitch_bend: shared(1.0),
+        }
     }
 }
 
 impl SharedMidiState {
-    pub fn pitch_bend_velocity_control_vars(&self) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
-        (var(&self.pitch), var(&self.pitch_bend), var(&self.velocity), var(&self.control))
+    pub fn pitch_bend_velocity_control_vars(
+        &self,
+    ) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
+        (
+            var(&self.pitch),
+            var(&self.pitch_bend),
+            var(&self.velocity),
+            var(&self.control),
+        )
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
