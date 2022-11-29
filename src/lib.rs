@@ -8,7 +8,7 @@ use crossbeam_queue::SegQueue;
 use fundsp::{
     hacker::{
         adsr_live, clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd,
-        Net64, Shared, Var, pulse
+        Net64, Shared, Var, pulse, envelope2, lerp11, sin_hz
     },
     prelude::FrameMul,
 };
@@ -414,4 +414,8 @@ pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<
 
 pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     adsr_timed_pulse(shared_midi_state, (0.1, 0.2, 0.4, 0.4))
+}
+
+pub fn pulse2(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    adsr_sound(shared_midi_state, Box::new(envelope2(move |t, p| (p, lerp11(0.01, 0.99, sin_hz(0.05, t)))) >> pulse()), (0.1, 0.2, 0.4, 0.4))
 }
