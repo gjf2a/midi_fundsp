@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail};
 use bare_metal_modulo::*;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Sample, SampleFormat, StreamConfig, Stream,
+    Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
 use fundsp::hacker::{
@@ -20,7 +20,7 @@ pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + S
 
 #[derive(Clone)]
 pub enum SynthMsg {
-    Midi(MidiMsg,Speaker),
+    Midi(MidiMsg, Speaker),
     SetSynth(Arc<SynthFunc>, Speaker),
     Off(Speaker),
     Quit,
@@ -58,9 +58,11 @@ pub fn start_input_thread(
     });
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub enum Speaker {
-    Left, Right, Both
+    Left,
+    Right,
+    Both,
 }
 
 impl Speaker {
@@ -69,22 +71,28 @@ impl Speaker {
     }
 }
 
-pub struct StereoSynth<const N: usize>  {
-    sounds: [LiveSounds<N>; 2]
+pub struct StereoSynth<const N: usize> {
+    sounds: [MonoSynth<N>; 2],
 }
 
-impl <const N: usize> StereoSynth<N> {
+impl<const N: usize> StereoSynth<N> {
     pub fn mono(synth: Arc<SynthFunc>) -> Self {
-        let sounds = [LiveSounds::<N>::new(synth.clone()), LiveSounds::<N>::new(synth.clone())];
-        Self {sounds}
+        let sounds = [
+            MonoSynth::<N>::new(synth.clone()),
+            MonoSynth::<N>::new(synth.clone()),
+        ];
+        Self { sounds }
     }
 
     pub fn stereo(left_synth: Arc<SynthFunc>, right_synth: Arc<SynthFunc>) -> Self {
-        let sounds = [LiveSounds::<N>::new(left_synth), LiveSounds::<N>::new(right_synth)];
-        Self {sounds}
+        let sounds = [
+            MonoSynth::<N>::new(left_synth),
+            MonoSynth::<N>::new(right_synth),
+        ];
+        Self { sounds }
     }
 
-    pub fn sound(&self) -> Net64 {
+    fn sound(&self) -> Net64 {
         Net64::stack_op(
             self.sounds[Speaker::Left.i()].sound(),
             self.sounds[Speaker::Right.i()].sound(),
@@ -104,7 +112,7 @@ impl <const N: usize> StereoSynth<N> {
         }
     }
 
-    fn act<F:FnMut(&mut LiveSounds<N>)>(&mut self, speaker: Speaker, mut action: F) {
+    fn act<F: FnMut(&mut MonoSynth<N>)>(&mut self, speaker: Speaker, mut action: F) {
         match speaker {
             Speaker::Left | Speaker::Right => action(&mut self.sounds[speaker.i()]),
             Speaker::Both => {
@@ -141,7 +149,9 @@ impl <const N: usize> StereoSynth<N> {
                         synth_changed = true;
                     }
                     SynthMsg::Off(speaker) => self.act(speaker, |s| s.all_off()),
-                    SynthMsg::Quit => {*running = false;},
+                    SynthMsg::Quit => {
+                        *running = false;
+                    }
                 }
             }
         }
@@ -165,10 +175,10 @@ impl <const N: usize> StereoSynth<N> {
                     write_data(data, channels, &mut next_value)
                 },
                 err_fn,
-            ).or_else(|err| bail!("{err:?}"))
+            )
+            .or_else(|err| bail!("{err:?}"))
     }
 }
-
 
 pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
     midi_in.ignore(Ignore::None);
@@ -252,7 +262,7 @@ fn pitch_bend_factor(bend: u16) -> f64 {
 }
 
 #[derive(Clone)]
-pub struct LiveSounds<const N: usize> {
+struct MonoSynth<const N: usize> {
     states: [SharedMidiState; N],
     next: ModNumC<usize, N>,
     pitch2state: [Option<usize>; NUM_MIDI_VALUES],
@@ -260,8 +270,8 @@ pub struct LiveSounds<const N: usize> {
     synth_func: Arc<SynthFunc>,
 }
 
-impl<const N: usize> LiveSounds<N> {
-    pub fn new(synth_func: Arc<SynthFunc>) -> Self {
+impl<const N: usize> MonoSynth<N> {
+    fn new(synth_func: Arc<SynthFunc>) -> Self {
         Self {
             states: [(); N].map(|_| SharedMidiState::default()),
             next: ModNumC::new(0),
@@ -319,7 +329,7 @@ impl<const N: usize> LiveSounds<N> {
         }
     }
 
-    pub fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
+    fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
         (self.synth_func)(&self.states[i])
     }
 
@@ -328,7 +338,7 @@ impl<const N: usize> LiveSounds<N> {
         self.states[i].off();
     }
 
-    pub fn all_off(&mut self) {
+    fn all_off(&mut self) {
         for i in 0..N {
             self.release(i);
         }
