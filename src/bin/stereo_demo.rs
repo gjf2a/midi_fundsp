@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
 use midi_fundsp::{
-    get_first_midi_device, simple_triangle, start_input_thread, Player, StereoMsg, StereoSide,
-    StereoSounds,
+    get_first_midi_device, simple_triangle, start_input_thread, Speaker, SynthMsg, StereoSynth
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
@@ -18,37 +17,31 @@ fn main() -> anyhow::Result<()> {
         let stereo_msgs = stereo_msgs.clone();
         std::thread::spawn(move || loop {
             if let Some(midi_msg) = midi_msgs.pop() {
-                if let Some(side) = side_from_pitch(&midi_msg) {
-                    stereo_msgs.push(StereoMsg { midi_msg, side });
-                } else {
-                    stereo_msgs.push(StereoMsg {
-                        midi_msg: midi_msg.clone(),
-                        side: StereoSide::Left,
-                    });
-                    stereo_msgs.push(StereoMsg {
-                        midi_msg,
-                        side: StereoSide::Right,
-                    });
-                }
+                let new_speaker = side_from_pitch(&midi_msg); 
+                let midi_msg = midi_msg.speaker_swapped(new_speaker);
+                stereo_msgs.push(midi_msg);
             }
         });
     }
-    let mut player = StereoSounds::<10>::new(Arc::new(simple_triangle), Arc::new(simple_triangle));
+    let mut player = StereoSynth::<10>::stereo(Arc::new(simple_triangle), Arc::new(simple_triangle));
     player.run_output(stereo_msgs)?;
     Ok(())
 }
 
-fn side_from_pitch(midi_msg: &MidiMsg) -> Option<StereoSide> {
+fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {
+    if let SynthMsg::Midi(midi_msg,_) = midi_msg {
     match midi_msg {
         MidiMsg::ChannelVoice { channel: _, msg } => match msg {
             ChannelVoiceMsg::NoteOn { note, velocity: _ }
-            | ChannelVoiceMsg::NoteOff { note, velocity: _ } => Some(if *note < 60 {
-                StereoSide::Left
+            | ChannelVoiceMsg::NoteOff { note, velocity: _ } => if *note < 60 {
+                return Speaker::Left;
             } else {
-                StereoSide::Right
-            }),
-            _ => None,
+                return Speaker::Right;
+            },
+            _ => return Speaker::Both,
         },
-        _ => None,
+        _ => return Speaker::Both,
     }
+}
+Speaker::Both
 }
