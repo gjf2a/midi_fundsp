@@ -472,6 +472,10 @@ pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<
     adsr_timed_sound(shared_midi_state, adsr, Box::new(pulse()))
 }
 
+/*pub fn adsr_timed_moog(shared_midi_state: &SharedMidiState, base: Box<dyn AudioUnit64>, adsr: Adsr) -> Box<dyn AudioUnit64> {
+    adsr_timed_sound(shared_midi_state, adsr, Box::new(Net64::stack_op(base, net2)))
+}*/
+
 pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     adsr_timed_pulse(shared_midi_state, (0.1, 0.2, 0.4, 0.4))
 }
