@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
             }
         });
     }
-    let mut player = StereoSynth::<10>::stereo(Arc::new(pulse2), Arc::new(adsr_triangle));
+    let mut player = StereoSynth::<10>::stereo(Arc::new(pulse1), Arc::new(adsr_triangle));
     player.run_output(stereo_msgs)?;
     Ok(())
 }

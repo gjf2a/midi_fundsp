@@ -14,7 +14,7 @@ use fundsp::{
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
-use std::sync::Arc;
+use std::{sync::Arc, fmt::Debug};
 
 pub const MAX_MIDI_VALUE: u8 = 127;
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
@@ -95,6 +95,10 @@ impl<const N: usize> StereoSynth<N> {
         Self { sounds }
     }
 
+    pub fn most_recent(&self) -> (&SharedMidiState, &SharedMidiState) {
+        (self.sounds[0].most_recent(), self.sounds[1].most_recent())
+    }
+
     fn sound(&self) -> Net64 {
         Net64::stack_op(
             self.sounds[Speaker::Left.i()].sound(),
@@ -132,6 +136,7 @@ impl<const N: usize> StereoSynth<N> {
         device: Device,
         config: StreamConfig,
     ) -> anyhow::Result<()> {
+        Self::warm_up(midi_msgs.clone());
         let mut running = true;
         while running {
             let stream = self.get_stream::<T>(&config, &device)?;
@@ -139,6 +144,13 @@ impl<const N: usize> StereoSynth<N> {
             self.handle_messages(&mut running, midi_msgs.clone());
         }
         Ok(())
+    }
+
+    fn warm_up(midi_msgs: Arc<SegQueue<SynthMsg>>) {
+        for _ in 0..N {
+            midi_msgs.push(SynthMsg::Midi(MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 0, velocity: 0 } }, Speaker::Both));
+            midi_msgs.push(SynthMsg::Midi(MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 0, velocity: 0 } }, Speaker::Both));
+        }
     }
 
     fn handle_messages(&mut self, running: &mut bool, midi_msgs: Arc<SegQueue<SynthMsg>>) {
@@ -230,6 +242,12 @@ impl Default for SharedMidiState {
     }
 }
 
+impl Debug for SharedMidiState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedMidiState").field("pitch", &self.pitch.value()).field("velocity", &self.velocity.value()).field("control", &self.control.value()).field("pitch_bend", &self.pitch_bend.value()).finish()
+    }
+}
+
 impl SharedMidiState {
     pub fn bent_pitch(&self) -> Net64 {
         Net64::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
@@ -299,6 +317,10 @@ impl<const N: usize> MonoSynth<N> {
             recent_pitches: [None; N],
             synth_func,
         }
+    }
+
+    fn most_recent(&self) -> &SharedMidiState {
+        &self.states[(self.next - 1).a()]
     }
 
     fn sound(&self) -> Net64 {
@@ -400,16 +422,20 @@ pub fn adsr_sound(
     )
 }
 
-pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
+pub fn adsr_timed_sound(shared_midi_state: &SharedMidiState, adsr: Adsr, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
     let (attack, decay, sustain, release) = adsr;
     let control1 = shared_midi_state.control_var();
-    let control2 = shared_midi_state.control_var();
+    let control2 = control1.clone();
     Box::new(Net64::bin_op(Net64::pipe_op(
         Net64::stack_op(shared_midi_state.bent_pitch(), 
         Net64::wrap(Box::new(control1 >> adsr_live(attack, decay, sustain, release)))), 
-        Net64::wrap(Box::new(pulse()))),
+        Net64::wrap(synth)),
         shared_midi_state.volume(Box::new(control2 >> adsr_live(attack, decay, sustain, release))),
         FrameMul::new()))
+}
+
+pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
+    adsr_timed_sound(shared_midi_state, adsr, Box::new(pulse()))
 }
 
 pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
