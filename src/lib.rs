@@ -5,9 +5,12 @@ use cpal::{
     Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{
-    clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd, Net64, Shared,
-    Var,
+use fundsp::{
+    hacker::{
+        adsr_live, clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd,
+        Net64, Shared, Var,
+    },
+    prelude::FrameMul,
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
@@ -228,6 +231,34 @@ impl Default for SharedMidiState {
 }
 
 impl SharedMidiState {
+    fn bent_pitch(&self) -> Net64 {
+        Net64::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
+    }
+
+    pub fn control_var(&self) -> An<Var<f64>> {
+        var(&self.control)
+    }
+
+    fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
+        Net64::bin_op(
+            Net64::wrap(Box::new(var(&self.velocity))),
+            Net64::wrap(adjuster),
+            FrameMul::new(),
+        )
+    }
+
+    pub fn assemble_sound(
+        &self,
+        synth: Box<dyn AudioUnit64>,
+        adjuster: Box<dyn AudioUnit64>,
+    ) -> Box<dyn AudioUnit64> {
+        Box::new(Net64::bin_op(
+            Net64::pipe_op(self.bent_pitch(), Net64::wrap(synth)),
+            self.volume(adjuster),
+            FrameMul::new(),
+        ))
+    }
+
     pub fn pitch_bend_velocity_control_vars(
         &self,
     ) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
@@ -345,7 +376,37 @@ impl<const N: usize> MonoSynth<N> {
     }
 }
 
+pub type Adsr = (f64, f64, f64, f64);
+
 pub fn simple_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    let (pitch, bend, velocity, control) = shared_midi_state.pitch_bend_velocity_control_vars();
-    Box::new(bend * pitch >> triangle() * velocity * envelope(move |_| clamp01(control.value())))
+    simple_sound(shared_midi_state, Box::new(triangle()))
+}
+
+pub fn simple_sound(
+    shared_midi_state: &SharedMidiState,
+    synth: Box<dyn AudioUnit64>,
+) -> Box<dyn AudioUnit64> {
+    let control = shared_midi_state.control_var();
+    shared_midi_state.assemble_sound(synth, Box::new(envelope(move |_| clamp01(control.value()))))
+}
+
+pub fn adsr_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    adsr_sound(
+        shared_midi_state,
+        Box::new(triangle()),
+        (0.1, 0.2, 0.4, 0.2),
+    )
+}
+
+pub fn adsr_sound(
+    shared_midi_state: &SharedMidiState,
+    synth: Box<dyn AudioUnit64>,
+    adsr: Adsr,
+) -> Box<dyn AudioUnit64> {
+    let control = shared_midi_state.control_var();
+    let (attack, decay, sustain, release) = adsr;
+    shared_midi_state.assemble_sound(
+        synth,
+        Box::new(control >> adsr_live(attack, decay, sustain, release)),
+    )
 }
