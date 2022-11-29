@@ -8,7 +8,7 @@ use crossbeam_queue::SegQueue;
 use fundsp::{
     hacker::{
         adsr_live, clamp01, envelope, midi_hz, shared, triangle, var, An, AudioUnit64, FrameAdd,
-        Net64, Shared, Var,
+        Net64, Shared, Var, pulse
     },
     prelude::FrameMul,
 };
@@ -231,7 +231,7 @@ impl Default for SharedMidiState {
 }
 
 impl SharedMidiState {
-    fn bent_pitch(&self) -> Net64 {
+    pub fn bent_pitch(&self) -> Net64 {
         Net64::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
     }
 
@@ -239,7 +239,7 @@ impl SharedMidiState {
         var(&self.control)
     }
 
-    fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
+    pub fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
         Net64::bin_op(
             Net64::wrap(Box::new(var(&self.velocity))),
             Net64::wrap(adjuster),
@@ -257,17 +257,6 @@ impl SharedMidiState {
             self.volume(adjuster),
             FrameMul::new(),
         ))
-    }
-
-    pub fn pitch_bend_velocity_control_vars(
-        &self,
-    ) -> (An<Var<f64>>, An<Var<f64>>, An<Var<f64>>, An<Var<f64>>) {
-        (
-            var(&self.pitch),
-            var(&self.pitch_bend),
-            var(&self.velocity),
-            var(&self.control),
-        )
     }
 
     pub fn on(&mut self, pitch: u8, velocity: u8) {
@@ -394,7 +383,7 @@ pub fn adsr_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64
     adsr_sound(
         shared_midi_state,
         Box::new(triangle()),
-        (0.1, 0.2, 0.4, 0.2),
+        (0.1, 0.2, 0.4, 0.4),
     )
 }
 
@@ -409,4 +398,20 @@ pub fn adsr_sound(
         synth,
         Box::new(control >> adsr_live(attack, decay, sustain, release)),
     )
+}
+
+pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
+    let (attack, decay, sustain, release) = adsr;
+    let control1 = shared_midi_state.control_var();
+    let control2 = shared_midi_state.control_var();
+    Box::new(Net64::bin_op(Net64::pipe_op(
+        Net64::stack_op(shared_midi_state.bent_pitch(), 
+        Net64::wrap(Box::new(control1 >> adsr_live(attack, decay, sustain, release)))), 
+        Net64::wrap(Box::new(pulse()))),
+        shared_midi_state.volume(Box::new(control2 >> adsr_live(attack, decay, sustain, release))),
+        FrameMul::new()))
+}
+
+pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    adsr_timed_pulse(shared_midi_state, (0.1, 0.2, 0.4, 0.4))
 }
