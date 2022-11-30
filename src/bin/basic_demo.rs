@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use midi_fundsp::{get_first_midi_device, simple_triangle, start_input_thread, StereoSynth};
+use midi_fundsp::{
+    sounds::simple_triangle,
+    io::{get_first_midi_device, start_input_thread, StereoSynth},
+};
 use midir::MidiInput;
 
 fn main() -> anyhow::Result<()> {

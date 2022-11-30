@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
 use midi_fundsp::{
-    adsr_triangle, get_first_midi_device, pulse1, pulse2, start_input_thread, Speaker, StereoSynth,
-    SynthMsg,
+    sounds::{adsr_triangle, pulse1},
+    io::{get_first_midi_device, start_input_thread, Speaker, StereoSynth, SynthMsg},
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
