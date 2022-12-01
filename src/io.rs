@@ -17,7 +17,7 @@ const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 #[derive(Clone)]
 pub enum SynthMsg {
     Midi(MidiMsg, Speaker),
-    SetSynth(Arc<SynthFunc>, Speaker),
+    SetSynth(SynthFunc, Speaker),
     Off(Speaker),
     Quit,
 }
@@ -79,7 +79,7 @@ pub struct StereoPlayer<const N: usize> {
 }
 
 impl<const N: usize> StereoPlayer<N> {
-    pub fn mono(synth: Arc<SynthFunc>) -> Self {
+    pub fn mono(synth: SynthFunc) -> Self {
         let sounds = [
             MonoPlayer::<N>::new(synth.clone()),
             MonoPlayer::<N>::new(synth.clone()),
@@ -87,7 +87,7 @@ impl<const N: usize> StereoPlayer<N> {
         Self { sounds }
     }
 
-    pub fn stereo(left_synth: Arc<SynthFunc>, right_synth: Arc<SynthFunc>) -> Self {
+    pub fn stereo(left_synth: SynthFunc, right_synth: SynthFunc) -> Self {
         let sounds = [
             MonoPlayer::<N>::new(left_synth),
             MonoPlayer::<N>::new(right_synth),
@@ -241,12 +241,12 @@ struct MonoPlayer<const N: usize> {
     next: ModNumC<usize, N>,
     pitch2state: [Option<usize>; NUM_MIDI_VALUES],
     recent_pitches: [Option<u8>; N],
-    synth_func: Arc<SynthFunc>,
+    synth_func: SynthFunc,
     master_volume: Shared<f64>,
 }
 
 impl<const N: usize> MonoPlayer<N> {
-    fn new(synth_func: Arc<SynthFunc>) -> Self {
+    fn new(synth_func: SynthFunc) -> Self {
         Self {
             states: [(); N].map(|_| SharedMidiState::default()),
             next: ModNumC::new(0),
@@ -304,7 +304,7 @@ impl<const N: usize> MonoPlayer<N> {
         }
     }
 
-    fn change_synth(&mut self, new_synth: Arc<SynthFunc>) {
+    fn change_synth(&mut self, new_synth: SynthFunc) {
         self.master_volume.set_value(0.0);
         self.synth_func = new_synth;
     }

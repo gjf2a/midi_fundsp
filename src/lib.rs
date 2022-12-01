@@ -6,10 +6,11 @@ use fundsp::hacker::{
     Net64, Shared, Var,
 };
 use std::fmt::Debug;
+use std::sync::Arc;
 
 pub const MAX_MIDI_VALUE: u8 = 127;
 
-pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
+pub type SynthFunc = Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct SharedMidiState {

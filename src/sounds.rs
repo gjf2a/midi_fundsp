@@ -7,7 +7,7 @@ use fundsp::{
 
 use crate::{adsr_timed_moog, simple_sound, Adsr, SharedMidiState, SynthFunc};
 
-pub fn options() -> Vec<(&'static str, Arc<SynthFunc>)> {
+pub fn options() -> Vec<(&'static str, SynthFunc)> {
     vec![
         ("Simple Triangle", Arc::new(simple_triangle)),
         ("ADSR Triangle", Arc::new(adsr_triangle)),
