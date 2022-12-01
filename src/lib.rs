@@ -51,6 +51,14 @@ impl SharedMidiState {
         var(&self.control)
     }
 
+    pub fn control_shared(&self) -> &Shared<f64> {
+        &self.control
+    }
+
+    pub fn pitch_shared(&self) -> &Shared<f64> {
+        &&self.pitch
+    }
+
     pub fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
         Net64::bin_op(
             Net64::wrap(Box::new(var(&self.velocity))),
@@ -127,11 +135,14 @@ macro_rules! op {
     };
 }
 
+// The var_fn() version looks better code-wise, but sounds a little worse - a little clipped.
 pub fn simple_sound(state: &SharedMidiState, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
+    //let control = state.control_shared();
     let control = state.control_var();
     state.assemble_sound(
         synth,
         Box::new(control >> envelope2(move |_, n| clamp01(n))),
+        //Box::new(var_fn(control, clamp01))
     )
 }
 
