@@ -5,7 +5,7 @@ use cpal::{
     Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{AudioUnit64, FrameAdd, Net64};
+use fundsp::hacker::{AudioUnit64, FrameAdd, Net64, Shared, shared, var, FrameMul};
 use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
@@ -88,10 +88,6 @@ impl<const N: usize> StereoPlayer<N> {
         Self { sounds }
     }
 
-    pub fn most_recent(&self) -> (&SharedMidiState, &SharedMidiState) {
-        (self.sounds[0].most_recent(), self.sounds[1].most_recent())
-    }
-
     fn sound(&self) -> Net64 {
         Net64::stack_op(
             self.sounds[Speaker::Left.i()].sound(),
@@ -169,10 +165,10 @@ impl<const N: usize> StereoPlayer<N> {
                 match msg {
                     SynthMsg::Midi(midi_msg, speaker) => self.act(speaker, |s| s.decode(&midi_msg)),
                     SynthMsg::SetSynth(synth, speaker) => {
-                        self.act(speaker, |s| s.synth_func = synth.clone());
+                        self.act(speaker, |s| s.change_synth(synth.clone()));
                         synth_changed = true;
                     }
-                    SynthMsg::Off(speaker) => self.act(speaker, |s| s.all_off()),
+                    SynthMsg::Off(speaker) => self.act(speaker, |s| s.release_all()),
                     SynthMsg::Quit => {
                         *running = false;
                     }
@@ -239,6 +235,7 @@ struct MonoPlayer<const N: usize> {
     pitch2state: [Option<usize>; NUM_MIDI_VALUES],
     recent_pitches: [Option<u8>; N],
     synth_func: Arc<SynthFunc>,
+    master_volume: Shared<f64>,
 }
 
 impl<const N: usize> MonoPlayer<N> {
@@ -249,11 +246,8 @@ impl<const N: usize> MonoPlayer<N> {
             pitch2state: [None; NUM_MIDI_VALUES],
             recent_pitches: [None; N],
             synth_func,
+            master_volume: shared(1.0),
         }
-    }
-
-    fn most_recent(&self) -> &SharedMidiState {
-        &self.states[(self.next - 1).a()]
     }
 
     fn sound(&self) -> Net64 {
@@ -261,7 +255,7 @@ impl<const N: usize> MonoPlayer<N> {
         for i in 1..N {
             sound = Net64::bin_op(sound, Net64::wrap(self.sound_at(i)), FrameAdd::new());
         }
-        sound
+        Net64::bin_op(sound, Net64::wrap(Box::new(var(&self.master_volume))), FrameMul::new())
     }
 
     fn decode(&mut self, msg: &MidiMsg) {
@@ -283,6 +277,7 @@ impl<const N: usize> MonoPlayer<N> {
     }
 
     fn on(&mut self, pitch: u8, velocity: u8) {
+        self.master_volume.set_value(1.0);
         self.states[self.next.a()].on(pitch, velocity);
         self.pitch2state[pitch as usize] = Some(self.next.a());
         self.recent_pitches[self.next.a()] = Some(pitch);
@@ -296,6 +291,11 @@ impl<const N: usize> MonoPlayer<N> {
             }
             self.pitch2state[pitch as usize] = None;
         }
+    }
+
+    fn change_synth(&mut self, new_synth: Arc<SynthFunc>) {
+        self.master_volume.set_value(0.0);
+        self.synth_func = new_synth;
     }
 
     fn bend(&mut self, bend: u16) {
@@ -313,7 +313,7 @@ impl<const N: usize> MonoPlayer<N> {
         self.states[i].off();
     }
 
-    fn all_off(&mut self) {
+    fn release_all(&mut self) {
         for i in 0..N {
             self.release(i);
         }
