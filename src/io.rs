@@ -5,15 +5,13 @@ use cpal::{
     Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::{
-    hacker::{midi_hz, shared, var, An, AudioUnit64, FrameAdd, Net64, Shared, Var},
-    prelude::FrameMul,
-};
+use fundsp::hacker::{AudioUnit64, FrameAdd, Net64};
 use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
-pub const MAX_MIDI_VALUE: u8 = 127;
+use crate::{SharedMidiState, MAX_MIDI_VALUE};
+
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
@@ -234,87 +232,6 @@ fn write_data<T: Sample>(
             *sample = if channel & 1 == 0 { left } else { right };
         }
     }
-}
-
-#[derive(Clone)]
-pub struct SharedMidiState {
-    pitch: Shared<f64>,
-    velocity: Shared<f64>,
-    control: Shared<f64>,
-    pitch_bend: Shared<f64>,
-}
-
-impl Default for SharedMidiState {
-    fn default() -> Self {
-        Self {
-            pitch: Default::default(),
-            velocity: Default::default(),
-            control: Default::default(),
-            pitch_bend: shared(1.0),
-        }
-    }
-}
-
-impl Debug for SharedMidiState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SharedMidiState")
-            .field("pitch", &self.pitch.value())
-            .field("velocity", &self.velocity.value())
-            .field("control", &self.control.value())
-            .field("pitch_bend", &self.pitch_bend.value())
-            .finish()
-    }
-}
-
-impl SharedMidiState {
-    pub fn bent_pitch(&self) -> Net64 {
-        Net64::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
-    }
-
-    pub fn control_var(&self) -> An<Var<f64>> {
-        var(&self.control)
-    }
-
-    pub fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
-        Net64::bin_op(
-            Net64::wrap(Box::new(var(&self.velocity))),
-            Net64::wrap(adjuster),
-            FrameMul::new(),
-        )
-    }
-
-    pub fn assemble_sound(
-        &self,
-        synth: Box<dyn AudioUnit64>,
-        adjuster: Box<dyn AudioUnit64>,
-    ) -> Box<dyn AudioUnit64> {
-        Box::new(Net64::bin_op(
-            Net64::pipe_op(self.bent_pitch(), Net64::wrap(synth)),
-            self.volume(adjuster),
-            FrameMul::new(),
-        ))
-    }
-
-    pub fn on(&mut self, pitch: u8, velocity: u8) {
-        self.pitch.set_value(midi_hz(pitch as f64));
-        self.velocity
-            .set_value(velocity as f64 / MAX_MIDI_VALUE as f64);
-        self.control.set_value(1.0);
-    }
-
-    pub fn off(&mut self) {
-        self.control.set_value(-1.0);
-    }
-
-    pub fn bend(&mut self, bend: u16) {
-        self.pitch_bend.set_value(pitch_bend_factor(bend));
-    }
-}
-
-/// Algorithm is from here: https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/
-/// Converts MIDI pitch-bend message to +/- 1 semitone.
-fn pitch_bend_factor(bend: u16) -> f64 {
-    2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
 }
 
 #[derive(Clone)]
