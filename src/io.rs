@@ -31,6 +31,13 @@ impl SynthMsg {
             SynthMsg::Quit => SynthMsg::Quit,
         }
     }
+
+    pub fn speaker(&self) -> Option<Speaker> {
+        match self {
+            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) | SynthMsg::Off(s) => Some(*s),
+            SynthMsg::Quit => None,
+        }
+    }
 }
 
 pub fn start_input_thread(
