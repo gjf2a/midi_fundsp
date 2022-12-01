@@ -1,88 +1,109 @@
 use fundsp::{
     hacker::{
-        adsr_live, clamp01, envelope, envelope2, lerp11, pulse, sin_hz, triangle, FrameMul, Net64,
+        adsr_live, clamp01, envelope, envelope2, moog_q, pulse, triangle, xerp, FrameMul, Net64,
     },
     prelude::AudioUnit64,
 };
 
 use crate::io::SharedMidiState;
 
-pub type Adsr = (f64, f64, f64, f64);
-
-pub fn simple_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    simple_sound(shared_midi_state, Box::new(triangle()))
+#[derive(Copy, Clone, Debug)]
+pub struct Adsr {
+    pub attack: f64,
+    pub decay: f64,
+    pub sustain: f64,
+    pub release: f64,
 }
 
-pub fn simple_sound(
-    shared_midi_state: &SharedMidiState,
-    synth: Box<dyn AudioUnit64>,
-) -> Box<dyn AudioUnit64> {
-    let control = shared_midi_state.control_var();
-    shared_midi_state.assemble_sound(synth, Box::new(envelope(move |_| clamp01(control.value()))))
-}
+impl Adsr {
+    pub fn boxed(&self, state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+        let control = state.control_var();
+        Box::new(control >> adsr_live(self.attack, self.decay, self.sustain, self.release))
+    }
 
-pub fn adsr_triangle(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    adsr_sound(
-        shared_midi_state,
-        Box::new(triangle()),
-        (0.1, 0.2, 0.4, 0.4),
-    )
-}
+    pub fn net64ed(&self, state: &SharedMidiState) -> Net64 {
+        Net64::wrap(self.boxed(state))
+    }
 
-pub fn adsr_sound(
-    shared_midi_state: &SharedMidiState,
-    synth: Box<dyn AudioUnit64>,
-    adsr: Adsr,
-) -> Box<dyn AudioUnit64> {
-    let control = shared_midi_state.control_var();
-    let (attack, decay, sustain, release) = adsr;
-    shared_midi_state.assemble_sound(
-        synth,
-        Box::new(control >> adsr_live(attack, decay, sustain, release)),
-    )
-}
-
-pub fn adsr_timed_sound(
-    shared_midi_state: &SharedMidiState,
-    adsr: Adsr,
-    synth: Box<dyn AudioUnit64>,
-) -> Box<dyn AudioUnit64> {
-    let (attack, decay, sustain, release) = adsr;
-    let control1 = shared_midi_state.control_var();
-    let control2 = control1.clone();
-    Box::new(Net64::bin_op(
+    pub fn timed_sound(&self, timed_sound: Box<dyn AudioUnit64>, state: &SharedMidiState) -> Net64 {
         Net64::pipe_op(
-            Net64::stack_op(
-                shared_midi_state.bent_pitch(),
-                Net64::wrap(Box::new(
-                    control1 >> adsr_live(attack, decay, sustain, release),
-                )),
-            ),
-            Net64::wrap(synth),
-        ),
-        shared_midi_state.volume(Box::new(
-            control2 >> adsr_live(attack, decay, sustain, release),
-        )),
+            Net64::stack_op(state.bent_pitch(), self.net64ed(state)),
+            Net64::wrap(timed_sound),
+        )
+    }
+}
+
+const ADSR1: Adsr = Adsr {
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.4,
+    release: 0.4,
+};
+
+const ADSR2: Adsr = Adsr {
+    attack: 0.1,
+    decay: 0.4,
+    sustain: 0.4,
+    release: 0.6,
+};
+
+pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    simple_sound(state, Box::new(triangle()))
+}
+
+pub fn simple_sound(state: &SharedMidiState, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
+    let control = state.control_var();
+    state.assemble_sound(synth, Box::new(envelope(move |_| clamp01(control.value()))))
+}
+
+pub fn adsr_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(Box::new(triangle()), ADSR1.boxed(state))
+}
+
+pub fn adsr_timed_pulse(state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
+    Box::new(Net64::bin_op(
+        adsr.timed_sound(Box::new(pulse()), state),
+        state.volume(adsr.boxed(state)),
         FrameMul::new(),
     ))
 }
 
-pub fn adsr_timed_pulse(shared_midi_state: &SharedMidiState, adsr: Adsr) -> Box<dyn AudioUnit64> {
-    adsr_timed_sound(shared_midi_state, adsr, Box::new(pulse()))
+pub fn adsr_timed_moog(
+    state: &SharedMidiState,
+    source: Box<dyn AudioUnit64>,
+    adsr: Adsr,
+) -> Box<dyn AudioUnit64> {
+    Box::new(Net64::pipe_op(
+        Net64::stack_op(
+            Net64::wrap(source),
+            Net64::pipe_op(
+                adsr.net64ed(state),
+                Net64::wrap(Box::new(envelope2(|_, n| xerp(1100.0, 11000.0, n)))),
+            ),
+        ),
+        Net64::wrap(Box::new(moog_q(0.6))),
+    ))
 }
 
-/*pub fn adsr_timed_moog(shared_midi_state: &SharedMidiState, base: Box<dyn AudioUnit64>, adsr: Adsr) -> Box<dyn AudioUnit64> {
-    adsr_timed_sound(shared_midi_state, adsr, Box::new(Net64::stack_op(base, net2)))
-}*/
-
-pub fn pulse1(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    adsr_timed_pulse(shared_midi_state, (0.1, 0.2, 0.4, 0.4))
+pub fn pulse1(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    adsr_timed_pulse(state, ADSR1)
 }
 
-pub fn pulse2(shared_midi_state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    adsr_sound(
-        shared_midi_state,
-        Box::new(envelope2(move |t, p| (p, lerp11(0.01, 0.99, sin_hz(0.05, t)))) >> pulse()),
-        (0.1, 0.2, 0.4, 0.4),
+pub fn triangle_moog(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(
+        adsr_timed_moog(state, Box::new(triangle()), ADSR2),
+        ADSR1.boxed(state),
     )
+}
+
+pub fn pulse_moog(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    Box::new(Net64::bin_op(
+        Net64::wrap(adsr_timed_moog(
+            state,
+            Box::new(ADSR1.timed_sound(Box::new(pulse()), state)),
+            ADSR2,
+        )),
+        state.volume(ADSR1.boxed(state)),
+        FrameMul::new(),
+    ))
 }
