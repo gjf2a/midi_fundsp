@@ -86,13 +86,13 @@ pub fn adsr_timed_moog(
 }
 
 pub fn pulse1(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    adsr_timed_pulse(state, ADSR1)
+    adsr_timed_pulse(state, ADSR2)
 }
 
 pub fn triangle_moog(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_sound(
         adsr_timed_moog(state, Box::new(triangle()), ADSR2),
-        ADSR1.boxed(state),
+        ADSR2.boxed(state),
     )
 }
 
@@ -100,10 +100,10 @@ pub fn pulse_moog(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     Box::new(Net64::bin_op(
         Net64::wrap(adsr_timed_moog(
             state,
-            Box::new(ADSR1.timed_sound(Box::new(pulse()), state)),
+            Box::new(ADSR2.timed_sound(Box::new(pulse()), state)),
             ADSR2,
         )),
-        state.volume(ADSR1.boxed(state)),
+        state.volume(ADSR2.boxed(state)),
         FrameMul::new(),
     ))
 }
