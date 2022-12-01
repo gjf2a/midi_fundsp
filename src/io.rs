@@ -5,7 +5,7 @@ use cpal::{
     Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
-use fundsp::hacker::{AudioUnit64, FrameAdd, Net64, Shared, shared, var, FrameMul};
+use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared};
 use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
@@ -255,7 +255,11 @@ impl<const N: usize> MonoPlayer<N> {
         for i in 1..N {
             sound = Net64::bin_op(sound, Net64::wrap(self.sound_at(i)), FrameAdd::new());
         }
-        Net64::bin_op(sound, Net64::wrap(Box::new(var(&self.master_volume))), FrameMul::new())
+        Net64::bin_op(
+            sound,
+            Net64::wrap(Box::new(var(&self.master_volume))),
+            FrameMul::new(),
+        )
     }
 
     fn decode(&mut self, msg: &MidiMsg) {

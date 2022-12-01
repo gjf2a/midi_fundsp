@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
 use midi_fundsp::{
-    io::{get_first_midi_device, start_input_thread, StereoPlayer, SynthMsg, Speaker},
+    io::{get_first_midi_device, start_input_thread, Speaker, StereoPlayer, SynthMsg},
     sounds::{options, simple_triangle},
 };
 use midir::MidiInput;
@@ -26,8 +26,14 @@ fn start_chooser_thread(midi_msgs: Arc<SegQueue<SynthMsg>>) {
             for i in 0..options.len() {
                 println!("{}: {}", i + 1, options[i].0);
             }
-            let choice = input().msg("Change synth to: ").inside(1..=options.len()).get();
-            midi_msgs.push(SynthMsg::SetSynth(options[choice - 1].1.clone(), Speaker::Both));
+            let choice = input()
+                .msg("Change synth to: ")
+                .inside(1..=options.len())
+                .get();
+            midi_msgs.push(SynthMsg::SetSynth(
+                options[choice - 1].1.clone(),
+                Speaker::Both,
+            ));
         }
     });
 }
