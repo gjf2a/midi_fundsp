@@ -2,12 +2,14 @@ pub mod io;
 pub mod sounds;
 
 use fundsp::hacker::{
-    adsr_live, clamp01, envelope, envelope2, midi_hz, moog_q, shared, var, xerp, An, AudioUnit64,
-    FrameMul, Net64, Shared, Var,
+    adsr_live, clamp01, envelope2, midi_hz, moog_q, shared, var, xerp, An, AudioUnit64, FrameMul,
+    Net64, Shared, Var,
 };
 use std::fmt::Debug;
 
 pub const MAX_MIDI_VALUE: u8 = 127;
+
+pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
 
 #[derive(Clone)]
 pub struct SharedMidiState {
@@ -116,9 +118,20 @@ impl Adsr {
     }
 }
 
+// It works, but I'm trying to avoid macros.
+#[allow(unused)]
+macro_rules! op {
+    ($fn:expr) => {
+        envelope2(move |_, n| $fn(n))
+    };
+}
+
 pub fn simple_sound(state: &SharedMidiState, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
     let control = state.control_var();
-    state.assemble_sound(synth, Box::new(envelope(move |_| clamp01(control.value()))))
+    state.assemble_sound(
+        synth,
+        Box::new(control >> envelope2(move |_, n| clamp01(n))),
+    )
 }
 
 pub fn adsr_timed_moog(
@@ -131,7 +144,7 @@ pub fn adsr_timed_moog(
             Net64::wrap(source),
             Net64::pipe_op(
                 adsr.net64ed(state),
-                Net64::wrap(Box::new(envelope2(|_, n| xerp(1100.0, 11000.0, n)))),
+                Net64::wrap(Box::new(envelope2(move |_, n| xerp(1100.0, 11000.0, n)))),
             ),
         ),
         Net64::wrap(Box::new(moog_q(0.6))),

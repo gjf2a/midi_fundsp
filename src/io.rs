@@ -10,11 +10,9 @@ use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use std::sync::Arc;
 
-use crate::{SharedMidiState, MAX_MIDI_VALUE};
+use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
 
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
-
-pub type SynthFunc = dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync;
 
 #[derive(Clone)]
 pub enum SynthMsg {
@@ -69,23 +67,23 @@ impl Speaker {
     }
 }
 
-pub struct StereoSynth<const N: usize> {
-    sounds: [MonoSynth<N>; 2],
+pub struct StereoPlayer<const N: usize> {
+    sounds: [MonoPlayer<N>; 2],
 }
 
-impl<const N: usize> StereoSynth<N> {
+impl<const N: usize> StereoPlayer<N> {
     pub fn mono(synth: Arc<SynthFunc>) -> Self {
         let sounds = [
-            MonoSynth::<N>::new(synth.clone()),
-            MonoSynth::<N>::new(synth.clone()),
+            MonoPlayer::<N>::new(synth.clone()),
+            MonoPlayer::<N>::new(synth.clone()),
         ];
         Self { sounds }
     }
 
     pub fn stereo(left_synth: Arc<SynthFunc>, right_synth: Arc<SynthFunc>) -> Self {
         let sounds = [
-            MonoSynth::<N>::new(left_synth),
-            MonoSynth::<N>::new(right_synth),
+            MonoPlayer::<N>::new(left_synth),
+            MonoPlayer::<N>::new(right_synth),
         ];
         Self { sounds }
     }
@@ -114,7 +112,7 @@ impl<const N: usize> StereoSynth<N> {
         }
     }
 
-    fn act<F: FnMut(&mut MonoSynth<N>)>(&mut self, speaker: Speaker, mut action: F) {
+    fn act<F: FnMut(&mut MonoPlayer<N>)>(&mut self, speaker: Speaker, mut action: F) {
         match speaker {
             Speaker::Left | Speaker::Right => action(&mut self.sounds[speaker.i()]),
             Speaker::Both => {
@@ -235,7 +233,7 @@ fn write_data<T: Sample>(
 }
 
 #[derive(Clone)]
-struct MonoSynth<const N: usize> {
+struct MonoPlayer<const N: usize> {
     states: [SharedMidiState; N],
     next: ModNumC<usize, N>,
     pitch2state: [Option<usize>; NUM_MIDI_VALUES],
@@ -243,7 +241,7 @@ struct MonoSynth<const N: usize> {
     synth_func: Arc<SynthFunc>,
 }
 
-impl<const N: usize> MonoSynth<N> {
+impl<const N: usize> MonoPlayer<N> {
     fn new(synth_func: Arc<SynthFunc>) -> Self {
         Self {
             states: [(); N].map(|_| SharedMidiState::default()),

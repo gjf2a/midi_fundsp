@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
 use midi_fundsp::{
-    io::{get_first_midi_device, start_input_thread, Speaker, StereoSynth, SynthMsg},
-    sounds::{adsr_triangle, pulse_moog},
+    io::{get_first_midi_device, start_input_thread, Speaker, StereoPlayer, SynthMsg},
+    sounds::{adsr_triangle, moog_pulse},
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
             }
         });
     }
-    let mut player = StereoSynth::<10>::stereo(Arc::new(pulse_moog), Arc::new(adsr_triangle));
+    let mut player = StereoPlayer::<10>::stereo(Arc::new(moog_pulse), Arc::new(adsr_triangle));
     player.run_output(stereo_msgs)?;
     Ok(())
 }
