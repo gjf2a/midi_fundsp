@@ -35,7 +35,13 @@ impl SynthMsg {
     }
 
     fn mode_msg(msg: ChannelModeMsg, speaker: Speaker) -> Self {
-        Self::Midi(MidiMsg::ChannelMode {channel: midi_msg::Channel::Ch1, msg}, speaker)
+        Self::Midi(
+            MidiMsg::ChannelMode {
+                channel: midi_msg::Channel::Ch1,
+                msg,
+            },
+            speaker,
+        )
     }
 
     // Returns a new `SynthMsg` with `new_speaker` replacing the previous `Speaker`.
@@ -49,12 +55,12 @@ impl SynthMsg {
     // Returns the `Speaker` associated with the current message, if it is not a `Quit` message.
     pub fn speaker(&self) -> Speaker {
         match self {
-            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => *s
+            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => *s,
         }
     }
 }
 
-/// 
+///
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
     midi_in: MidiInput,
@@ -122,7 +128,11 @@ impl<const N: usize> StereoPlayer<N> {
         )
     }
 
-    pub fn run_output(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>, quit: Arc<AtomicCell<bool>>) -> anyhow::Result<()> {
+    pub fn run_output(
+        &mut self,
+        midi_msgs: Arc<SegQueue<SynthMsg>>,
+        quit: Arc<AtomicCell<bool>>,
+    ) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -258,11 +268,9 @@ pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPo
             for port in in_ports.iter() {
                 choices.push((midi_in.port_name(port)?, port));
             }
-            Ok(choices[console_choice_from(
-                "Select MIDI Device",
-                &choices,
-                |choice| choice.0.as_str(),
-            )].1.clone())
+            let c =
+                console_choice_from("Select MIDI Device", &choices, |choice| choice.0.as_str());
+            Ok(choices[c].1.clone())
         }
     }
 }
