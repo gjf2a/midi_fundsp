@@ -2,16 +2,17 @@ use std::sync::Arc;
 
 use fundsp::hacker::{pulse, sine, triangle, AudioUnit64, FrameMul, Net64};
 
-use crate::{adsr_timed_moog, simple_sound, Adsr, SharedMidiState, SynthFunc};
+use crate::sound_builders::{adsr_timed_moog, simple_sound, Adsr};
+use crate::{SharedMidiState, SynthFunc};
 
 pub fn options() -> Vec<(&'static str, SynthFunc)> {
     vec![
         ("Simple Triangle", Arc::new(simple_triangle)),
         ("Triangle", Arc::new(adsr_triangle)),
-        ("Sine", Arc::new(adsr_sine)),
         ("Pulse", Arc::new(adsr_pulse)),
         ("Moog Triangle", Arc::new(moog_triangle)),
         ("Moog Pulse", Arc::new(moog_pulse)),
+        ("Sine", Arc::new(adsr_sine)),
         //("Pluck", Arc::new(adsr_pluck))
     ]
 }

@@ -6,8 +6,9 @@ use cpal::{
 };
 use crossbeam_queue::SegQueue;
 use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared};
-use midi_msg::{Channel, ChannelVoiceMsg, MidiMsg};
+use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
+use read_input::{shortcut::input, InputBuild};
 use std::sync::Arc;
 
 use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
@@ -18,7 +19,6 @@ const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 pub enum SynthMsg {
     Midi(MidiMsg, Speaker),
     SetSynth(SynthFunc, Speaker),
-    Off(Speaker),
     Quit,
 }
 
@@ -27,14 +27,13 @@ impl SynthMsg {
         match self {
             SynthMsg::Midi(m, _) => SynthMsg::Midi(m.clone(), new_speaker),
             SynthMsg::SetSynth(s, _) => SynthMsg::SetSynth(s.clone(), new_speaker),
-            SynthMsg::Off(_) => SynthMsg::Off(new_speaker),
             SynthMsg::Quit => SynthMsg::Quit,
         }
     }
 
     pub fn speaker(&self) -> Option<Speaker> {
         match self {
-            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) | SynthMsg::Off(s) => Some(*s),
+            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => Some(*s),
             SynthMsg::Quit => None,
         }
     }
@@ -175,7 +174,6 @@ impl<const N: usize> StereoPlayer<N> {
                         self.act(speaker, |s| s.change_synth(synth.clone()));
                         synth_changed = true;
                     }
-                    SynthMsg::Off(speaker) => self.act(speaker, |s| s.release_all()),
                     SynthMsg::Quit => {
                         *running = false;
                     }
@@ -207,6 +205,20 @@ impl<const N: usize> StereoPlayer<N> {
     }
 }
 
+pub fn console_choice_from<T, R, F: Fn(&T) -> &str, C: Fn(&T) -> R>(
+    prompt: &str,
+    choices: &Vec<T>,
+    prompt_func: F,
+    result_func: C,
+) -> R {
+    for i in 0..choices.len() {
+        println!("{}: {}", i + 1, prompt_func(&choices[i]));
+    }
+    let prompt = format!("{prompt}: ");
+    let choice = input().msg(prompt).inside(1..=choices.len()).get();
+    result_func(&choices[choice - 1])
+}
+
 pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
     midi_in.ignore(Ignore::None);
     let in_ports = midi_in.ports();
@@ -216,6 +228,27 @@ pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInpu
         let device_name = midi_in.port_name(&in_ports[0])?;
         println!("Chose MIDI device {device_name}");
         Ok(in_ports[0].clone())
+    }
+}
+
+pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
+    midi_in.ignore(Ignore::None);
+    let in_ports = midi_in.ports();
+    match in_ports.len() {
+        0 => bail!("No MIDI devices attached"),
+        1 => get_first_midi_device(midi_in),
+        _ => {
+            let mut choices = vec![];
+            for port in in_ports.iter() {
+                choices.push((midi_in.port_name(port)?, port));
+            }
+            Ok(console_choice_from(
+                "Select MIDI Device",
+                &choices,
+                |choice| choice.0.as_str(),
+                |chosen| chosen.1.clone(),
+            ))
+        }
     }
 }
 
@@ -283,6 +316,11 @@ impl<const N: usize> MonoPlayer<N> {
                 }
                 _ => {}
             },
+            MidiMsg::ChannelMode { channel: _, msg } => match msg {
+                ChannelModeMsg::AllNotesOff => self.release_all(),
+                ChannelModeMsg::AllSoundOff => self.all_sounds_off(),
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -305,7 +343,7 @@ impl<const N: usize> MonoPlayer<N> {
     }
 
     fn change_synth(&mut self, new_synth: SynthFunc) {
-        self.master_volume.set_value(0.0);
+        self.all_sounds_off();
         self.synth_func = new_synth;
     }
 
@@ -328,5 +366,9 @@ impl<const N: usize> MonoPlayer<N> {
         for i in 0..N {
             self.release(i);
         }
+    }
+
+    fn all_sounds_off(&mut self) {
+        self.master_volume.set_value(0.0);
     }
 }
