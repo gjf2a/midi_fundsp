@@ -5,6 +5,7 @@ use cpal::{
     Device, Sample, SampleFormat, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
+use crossbeam_utils::atomic::AtomicCell;
 use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared};
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
@@ -16,11 +17,10 @@ use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 #[derive(Clone)]
-/// Each `SynthMsg` represents either a 
+/// Each `SynthMsg` represents either a MIDI input message, a change in `SynthFunc`, or an instruction to quit.
 pub enum SynthMsg {
     Midi(MidiMsg, Speaker),
     SetSynth(SynthFunc, Speaker),
-    Quit,
 }
 
 impl SynthMsg {
@@ -38,26 +38,29 @@ impl SynthMsg {
         Self::Midi(MidiMsg::ChannelMode {channel: midi_msg::Channel::Ch1, msg}, speaker)
     }
 
+    // Returns a new `SynthMsg` with `new_speaker` replacing the previous `Speaker`.
     pub fn speaker_swapped(&self, new_speaker: Speaker) -> Self {
         match self {
             SynthMsg::Midi(m, _) => SynthMsg::Midi(m.clone(), new_speaker),
             SynthMsg::SetSynth(s, _) => SynthMsg::SetSynth(s.clone(), new_speaker),
-            SynthMsg::Quit => SynthMsg::Quit,
         }
     }
 
-    pub fn speaker(&self) -> Option<Speaker> {
+    // Returns the `Speaker` associated with the current message, if it is not a `Quit` message.
+    pub fn speaker(&self) -> Speaker {
         match self {
-            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => Some(*s),
-            SynthMsg::Quit => None,
+            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => *s
         }
     }
 }
 
+/// 
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
     midi_in: MidiInput,
     in_port: MidiInputPort,
+    quit: Arc<AtomicCell<bool>>,
+    print_incoming_msg: bool,
 ) {
     std::thread::spawn(move || {
         let _conn_in = midi_in
@@ -66,12 +69,15 @@ pub fn start_input_thread(
                 "midir-read-input",
                 move |_stamp, message, _| {
                     let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
+                    if print_incoming_msg {
+                        println!("{msg:?}");
+                    }
                     midi_msgs.push(SynthMsg::Midi(msg, Speaker::Both));
                 },
                 (),
             )
             .unwrap();
-        loop {}
+        while !quit.load() {}
     });
 }
 
@@ -116,16 +122,16 @@ impl<const N: usize> StereoPlayer<N> {
         )
     }
 
-    pub fn run_output(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>) -> anyhow::Result<()> {
+    pub fn run_output(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>, quit: Arc<AtomicCell<bool>>) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .ok_or(anyhow!("failed to find a default output device"))?;
         let config = device.default_output_config()?;
         match config.sample_format() {
-            SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into()),
-            SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into()),
-            SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into()),
+            SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into(), quit),
+            SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into(), quit),
+            SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into(), quit),
         }
     }
 
@@ -145,13 +151,13 @@ impl<const N: usize> StereoPlayer<N> {
         midi_msgs: Arc<SegQueue<SynthMsg>>,
         device: Device,
         config: StreamConfig,
+        quit: Arc<AtomicCell<bool>>,
     ) -> anyhow::Result<()> {
         Self::warm_up(midi_msgs.clone());
-        let mut running = true;
-        while running {
+        while !quit.load() {
             let stream = self.get_stream::<T>(&config, &device)?;
             stream.play()?;
-            self.handle_messages(&mut running, midi_msgs.clone());
+            self.handle_messages(midi_msgs.clone(), quit.clone());
         }
         Ok(())
     }
@@ -179,18 +185,15 @@ impl<const N: usize> StereoPlayer<N> {
         )
     }
 
-    fn handle_messages(&mut self, running: &mut bool, midi_msgs: Arc<SegQueue<SynthMsg>>) {
+    fn handle_messages(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>, quit: Arc<AtomicCell<bool>>) {
         let mut synth_changed = false;
-        while !synth_changed {
+        while !synth_changed && !quit.load() {
             if let Some(msg) = midi_msgs.pop() {
                 match msg {
                     SynthMsg::Midi(midi_msg, speaker) => self.act(speaker, |s| s.decode(&midi_msg)),
                     SynthMsg::SetSynth(synth, speaker) => {
                         self.act(speaker, |s| s.change_synth(synth.clone()));
                         synth_changed = true;
-                    }
-                    SynthMsg::Quit => {
-                        *running = false;
                     }
                 }
             }
