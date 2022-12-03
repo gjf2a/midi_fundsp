@@ -223,18 +223,16 @@ impl<const N: usize> StereoPlayer<N> {
     }
 }
 
-pub fn console_choice_from<T, R, F: Fn(&T) -> &str, C: Fn(&T) -> R>(
+pub fn console_choice_from<T, F: Fn(&T) -> &str>(
     prompt: &str,
     choices: &Vec<T>,
     prompt_func: F,
-    result_func: C,
-) -> R {
+) -> usize {
     for i in 0..choices.len() {
         println!("{}: {}", i + 1, prompt_func(&choices[i]));
     }
     let prompt = format!("{prompt}: ");
-    let choice = input().msg(prompt).inside(1..=choices.len()).get();
-    result_func(&choices[choice - 1])
+    input().msg(prompt).inside(1..=choices.len()).get() - 1
 }
 
 pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
@@ -260,12 +258,11 @@ pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPo
             for port in in_ports.iter() {
                 choices.push((midi_in.port_name(port)?, port));
             }
-            Ok(console_choice_from(
+            Ok(choices[console_choice_from(
                 "Select MIDI Device",
                 &choices,
                 |choice| choice.0.as_str(),
-                |chosen| chosen.1.clone(),
-            ))
+            )].1.clone())
         }
     }
 }
