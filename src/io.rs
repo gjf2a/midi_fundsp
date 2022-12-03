@@ -16,6 +16,7 @@ use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 #[derive(Clone)]
+/// Each `SynthMsg` represents either a 
 pub enum SynthMsg {
     Midi(MidiMsg, Speaker),
     SetSynth(SynthFunc, Speaker),
@@ -23,6 +24,20 @@ pub enum SynthMsg {
 }
 
 impl SynthMsg {
+    /// Returns MIDI `All Notes Off` message. This releases all current sounds.
+    pub fn all_notes_off(speaker: Speaker) -> Self {
+        Self::mode_msg(ChannelModeMsg::AllNotesOff, speaker)
+    }
+
+    /// Returns MIDI `All Sound Off` message. This shuts off all current sounds immediately.
+    pub fn all_sound_off(speaker: Speaker) -> Self {
+        Self::mode_msg(ChannelModeMsg::AllSoundOff, speaker)
+    }
+
+    fn mode_msg(msg: ChannelModeMsg, speaker: Speaker) -> Self {
+        Self::Midi(MidiMsg::ChannelMode {channel: midi_msg::Channel::Ch1, msg}, speaker)
+    }
+
     pub fn speaker_swapped(&self, new_speaker: Speaker) -> Self {
         match self {
             SynthMsg::Midi(m, _) => SynthMsg::Midi(m.clone(), new_speaker),
