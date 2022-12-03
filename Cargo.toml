@@ -13,4 +13,6 @@ anyhow = "1"
 midi-msg = "0.4"
 bare_metal_modulo = "1"
 crossbeam-queue = "0.3"
+
+[dev-dependencies]
 read_input = "0.8"
