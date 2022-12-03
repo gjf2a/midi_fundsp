@@ -27,6 +27,7 @@ fn main() -> anyhow::Result<()> {
     }
     let program_table = Arc::new(Mutex::new(moogs()));
     let mut player = StereoPlayer::<10>::new(program_table.clone());
+    stereo_msgs.push(SynthMsg::program_change(1, Speaker::Left));
     player.run_output(stereo_msgs, quit)?;
     Ok(())
 }
