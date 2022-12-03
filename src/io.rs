@@ -10,17 +10,15 @@ use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
+use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE, sound_builders::ProgramTable};
 
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 #[derive(Clone)]
-/// Each `SynthMsg` represents either a MIDI input message, a change in `SynthFunc`, or an instruction to quit.
-pub enum SynthMsg {
-    Midi(MidiMsg, Speaker),
-    SetSynth(SynthFunc, Speaker),
+pub struct SynthMsg {
+    pub msg: MidiMsg, pub speaker: Speaker
 }
 
 impl SynthMsg {
@@ -35,27 +33,21 @@ impl SynthMsg {
     }
 
     fn mode_msg(msg: ChannelModeMsg, speaker: Speaker) -> Self {
-        Self::Midi(
-            MidiMsg::ChannelMode {
+        Self {msg: MidiMsg::ChannelMode {
                 channel: midi_msg::Channel::Ch1,
                 msg,
             },
-            speaker,
-        )
-    }
-
-    // Returns a new `SynthMsg` with `new_speaker` replacing the previous `Speaker`.
-    pub fn speaker_swapped(&self, new_speaker: Speaker) -> Self {
-        match self {
-            SynthMsg::Midi(m, _) => SynthMsg::Midi(m.clone(), new_speaker),
-            SynthMsg::SetSynth(s, _) => SynthMsg::SetSynth(s.clone(), new_speaker),
+            speaker
         }
     }
 
-    // Returns the `Speaker` associated with the current message, if it is not a `Quit` message.
-    pub fn speaker(&self) -> Speaker {
-        match self {
-            SynthMsg::Midi(_, s) | SynthMsg::SetSynth(_, s) => *s,
+    pub fn program_change(program: u8, speaker: Speaker) -> Self {
+        Self {
+            msg: MidiMsg::ChannelVoice { 
+                channel: midi_msg::Channel::Ch1, 
+                msg: ChannelVoiceMsg::ProgramChange { program }
+            },
+            speaker
         }
     }
 }
@@ -78,7 +70,7 @@ pub fn start_input_thread(
                     if print_incoming_msg {
                         println!("{msg:?}");
                     }
-                    midi_msgs.push(SynthMsg::Midi(msg, Speaker::Both));
+                    midi_msgs.push(SynthMsg {msg, speaker: Speaker::Both});
                 },
                 (),
             )
@@ -105,18 +97,10 @@ pub struct StereoPlayer<const N: usize> {
 }
 
 impl<const N: usize> StereoPlayer<N> {
-    pub fn mono(synth: SynthFunc) -> Self {
+    pub fn new(program_table: Arc<Mutex<ProgramTable>>) -> Self {
         let sounds = [
-            MonoPlayer::<N>::new(synth.clone()),
-            MonoPlayer::<N>::new(synth.clone()),
-        ];
-        Self { sounds }
-    }
-
-    pub fn stereo(left_synth: SynthFunc, right_synth: SynthFunc) -> Self {
-        let sounds = [
-            MonoPlayer::<N>::new(left_synth),
-            MonoPlayer::<N>::new(right_synth),
+            MonoPlayer::<N>::new(program_table.clone()),
+            MonoPlayer::<N>::new(program_table),
         ];
         Self { sounds }
     }
@@ -186,26 +170,20 @@ impl<const N: usize> StereoPlayer<N> {
     }
 
     fn warm_up_msg(msg: ChannelVoiceMsg) -> SynthMsg {
-        SynthMsg::Midi(
-            MidiMsg::ChannelVoice {
+        SynthMsg {
+            msg: MidiMsg::ChannelVoice {
                 channel: Channel::Ch1,
                 msg,
             },
-            Speaker::Both,
-        )
+            speaker: Speaker::Both,
+        }
     }
 
     fn handle_messages(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>, quit: Arc<AtomicCell<bool>>) {
         let mut synth_changed = false;
         while !synth_changed && !quit.load() {
             if let Some(msg) = midi_msgs.pop() {
-                match msg {
-                    SynthMsg::Midi(midi_msg, speaker) => self.act(speaker, |s| s.decode(&midi_msg)),
-                    SynthMsg::SetSynth(synth, speaker) => {
-                        self.act(speaker, |s| s.change_synth(synth.clone()));
-                        synth_changed = true;
-                    }
-                }
+                self.act(msg.speaker, |s| s.decode(&msg.msg, &mut synth_changed));
             }
         }
     }
@@ -299,10 +277,15 @@ struct MonoPlayer<const N: usize> {
     recent_pitches: [Option<u8>; N],
     synth_func: SynthFunc,
     master_volume: Shared<f64>,
+    program_table: Arc<Mutex<ProgramTable>>, 
 }
 
 impl<const N: usize> MonoPlayer<N> {
-    fn new(synth_func: SynthFunc) -> Self {
+    fn new(program_table: Arc<Mutex<ProgramTable>>) -> Self {
+        let synth_func = {
+            let program_table = program_table.lock().unwrap();
+            program_table[0].1.clone()
+        };
         Self {
             states: [(); N].map(|_| SharedMidiState::default()),
             next: ModNumC::new(0),
@@ -310,6 +293,7 @@ impl<const N: usize> MonoPlayer<N> {
             recent_pitches: [None; N],
             synth_func,
             master_volume: shared(1.0),
+            program_table
         }
     }
 
@@ -325,7 +309,7 @@ impl<const N: usize> MonoPlayer<N> {
         )
     }
 
-    fn decode(&mut self, msg: &MidiMsg) {
+    fn decode(&mut self, msg: &MidiMsg, synth_changed: &mut bool) {
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
@@ -336,6 +320,14 @@ impl<const N: usize> MonoPlayer<N> {
                 }
                 ChannelVoiceMsg::PitchBend { bend } => {
                     self.bend(*bend);
+                }
+                ChannelVoiceMsg::ProgramChange { program } => {
+                    let new_synth = {
+                        let program_table = self.program_table.lock().unwrap();
+                        program_table[*program as usize].1.clone()
+                    };
+                    self.change_synth(new_synth);
+                    *synth_changed = true;
                 }
                 _ => {}
             },

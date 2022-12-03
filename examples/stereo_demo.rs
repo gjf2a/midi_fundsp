@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{get_first_midi_device, start_input_thread, Speaker, StereoPlayer, SynthMsg},
-    sounds::{moog_pulse, moog_triangle},
+    sounds::{moogs},
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
@@ -19,32 +19,30 @@ fn main() -> anyhow::Result<()> {
     {
         let stereo_msgs = stereo_msgs.clone();
         std::thread::spawn(move || loop {
-            if let Some(midi_msg) = midi_msgs.pop() {
-                let new_speaker = side_from_pitch(&midi_msg);
-                let midi_msg = midi_msg.speaker_swapped(new_speaker);
+            if let Some(mut midi_msg) = midi_msgs.pop() {
+                midi_msg.speaker = side_from_pitch(&midi_msg);
                 stereo_msgs.push(midi_msg);
             }
         });
     }
-    let mut player = StereoPlayer::<10>::stereo(Arc::new(moog_pulse), Arc::new(moog_triangle));
+    let program_table = Arc::new(Mutex::new(moogs()));
+    let mut player = StereoPlayer::<10>::new(program_table.clone());
     player.run_output(stereo_msgs, quit)?;
     Ok(())
 }
 
 fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {
-    if let SynthMsg::Midi(midi_msg, _) = midi_msg {
-        if let MidiMsg::ChannelVoice { channel: _, msg } = midi_msg {
-            match msg {
-                ChannelVoiceMsg::NoteOn { note, velocity: _ }
-                | ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                    if *note < 60 {
-                        return Speaker::Left;
-                    } else {
-                        return Speaker::Right;
-                    }
+    if let MidiMsg::ChannelVoice { channel: _, msg } = midi_msg.msg {
+        match msg {
+            ChannelVoiceMsg::NoteOn { note, velocity: _ }
+            | ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                if note < 60 {
+                    return Speaker::Left;
+                } else {
+                    return Speaker::Right;
                 }
-                _ => {}
             }
+            _ => {}
         }
     }
     Speaker::Both

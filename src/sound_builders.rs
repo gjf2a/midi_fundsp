@@ -1,15 +1,15 @@
 use fundsp::hacker::{adsr_live, clamp01, envelope2, moog_q, xerp, AudioUnit64, Net64};
 
-use crate::SharedMidiState;
+use crate::{SharedMidiState, SynthFunc};
 
-// The var_fn() version looks better code-wise, but sounds a little worse - a little clipped.
+pub const NUM_PROGRAM_SLOTS: usize = 2_usize.pow(7);
+pub type ProgramTable = Vec<(String, SynthFunc)>;
+
 pub fn simple_sound(state: &SharedMidiState, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
-    //let control = state.control_shared();
     let control = state.control_var();
     state.assemble_sound(
         synth,
         Box::new(control >> envelope2(move |_, n| clamp01(n))),
-        //Box::new(var_fn(control, clamp01))
     )
 }
 
@@ -37,14 +37,6 @@ impl Adsr {
             Net64::wrap(timed_sound),
         )
     }
-}
-
-// It works, but I'm trying to avoid macros.
-#[allow(unused)]
-macro_rules! op {
-    ($fn:expr) => {
-        envelope2(move |_, n| $fn(n))
-    };
 }
 
 pub fn adsr_timed_moog(

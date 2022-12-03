@@ -2,19 +2,34 @@ use std::sync::Arc;
 
 use fundsp::hacker::{pulse, sine, triangle, AudioUnit64, FrameMul, Net64};
 
-use crate::sound_builders::{adsr_timed_moog, simple_sound, Adsr};
-use crate::{SharedMidiState, SynthFunc};
+use crate::sound_builders::{adsr_timed_moog, simple_sound, Adsr, ProgramTable};
+use crate::SharedMidiState;
 
-pub fn options() -> Vec<(&'static str, SynthFunc)> {
-    vec![
-        ("Simple Triangle", Arc::new(simple_triangle)),
-        ("Triangle", Arc::new(adsr_triangle)),
-        ("Pulse", Arc::new(adsr_pulse)),
-        ("Moog Triangle", Arc::new(moog_triangle)),
-        ("Moog Pulse", Arc::new(moog_pulse)),
-        ("Sine", Arc::new(adsr_sine)),
-        //("Pluck", Arc::new(adsr_pluck))
-    ]
+macro_rules! program_table {
+    ($( ($s:expr, $f:expr)),* ) => {vec![$(($s.to_owned(), Arc::new($f)),)*]}
+}
+
+pub fn options() -> ProgramTable {
+    program_table! [ 
+        ("Simple Triangle", simple_triangle),
+        ("Triangle", adsr_triangle),
+        ("Pulse", adsr_pulse),
+        ("Moog Triangle", moog_triangle),
+        ("Moog Pulse", moog_pulse),
+        ("Sine", adsr_sine)
+        //("Pluck", adsr_pluck))
+    ] 
+}
+
+pub fn moogs() -> ProgramTable {
+    program_table! [ 
+        ("Moog Triangle", moog_triangle),
+        ("Moog Pulse", moog_pulse)
+    ] 
+}
+
+pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    simple_sound(state, Box::new(triangle()))
 }
 
 pub const ADSR1: Adsr = Adsr {
@@ -30,10 +45,6 @@ pub const ADSR2: Adsr = Adsr {
     sustain: 0.4,
     release: 0.6,
 };
-
-pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    simple_sound(state, Box::new(triangle()))
-}
 
 /*
 // The pluck() function is weird and I will need some help with it.
