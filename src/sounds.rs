@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use fundsp::hacker::{dsf_saw, pulse, sine, triangle, AudioUnit64, dsf_square};
+use fundsp::hacker::{dsf_saw, dsf_square, pulse, saw, sine, square, triangle, AudioUnit64};
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
 use crate::SharedMidiState;
@@ -13,17 +13,26 @@ pub fn options() -> ProgramTable {
     program_table![
         ("Simple Triangle", simple_triangle),
         ("Triangle", adsr_triangle),
+        ("Sine", adsr_sine),
+        ("Saw", adsr_saw),
+        ("Square", adsr_square),
         ("Pulse", adsr_pulse),
         ("DSF Saw", adsr_dsf_saw),
         ("DSF Square", adsr_dsf_square),
         ("Moog Triangle", moog_triangle),
-        ("Moog Pulse", moog_pulse),
-        ("Sine", adsr_sine)
+        ("Moog Saw", moog_saw),
+        ("Moog Square", moog_square),
+        ("Moog Pulse", moog_pulse)
     ]
 }
 
 pub fn moogs() -> ProgramTable {
-    program_table![("Moog Triangle", moog_triangle), ("Moog Pulse", moog_pulse)]
+    program_table![
+        ("Moog Triangle", moog_triangle),
+        ("Moog Pulse", moog_pulse),
+        ("Moog Saw", moog_saw),
+        ("Moog Square", moog_square)
+    ]
 }
 
 pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
@@ -77,6 +86,14 @@ pub fn adsr_sine(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_sound(Box::new(sine()), ADSR1.boxed(state))
 }
 
+pub fn adsr_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(Box::new(saw()), ADSR1.boxed(state))
+}
+
+pub fn adsr_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(Box::new(square()), ADSR1.boxed(state))
+}
+
 pub fn adsr_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     ADSR2.assemble_timed(Box::new(pulse()), state)
 }
@@ -103,9 +120,16 @@ pub fn moog_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     )
 }
 
-pub fn moog_dsf_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_pitched_sound(
-        Box::new(ADSR2.timed_moog(Box::new(ADSR2.timed_sound(Box::new(dsf_square()), state)), state)),
+pub fn moog_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(
+        Box::new(ADSR2.timed_moog(Box::new(square()), state)),
+        ADSR2.boxed(state),
+    )
+}
+
+pub fn moog_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_sound(
+        Box::new(ADSR2.timed_moog(Box::new(saw()), state)),
         ADSR2.boxed(state),
     )
 }

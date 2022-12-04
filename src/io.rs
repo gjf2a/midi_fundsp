@@ -10,7 +10,7 @@ use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}};
 
 use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
 
