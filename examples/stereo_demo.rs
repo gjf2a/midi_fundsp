@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
-    io::{get_first_midi_device, start_input_thread, Speaker, SynthMsg, start_output_thread},
-    sounds::{moogs},
+    io::{get_first_midi_device, start_input_thread, start_output_thread, Speaker, SynthMsg},
+    sounds::moogs,
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;

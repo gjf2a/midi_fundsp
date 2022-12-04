@@ -112,8 +112,19 @@ impl SharedMidiState {
         synth: Box<dyn AudioUnit64>,
         adjuster: Box<dyn AudioUnit64>,
     ) -> Box<dyn AudioUnit64> {
+        self.assemble_pitched_sound(
+            Box::new(Net64::pipe_op(self.bent_pitch(), Net64::wrap(synth))),
+            adjuster,
+        )
+    }
+
+    pub fn assemble_pitched_sound(
+        &self,
+        pitched_sound: Box<dyn AudioUnit64>,
+        adjuster: Box<dyn AudioUnit64>,
+    ) -> Box<dyn AudioUnit64> {
         Box::new(Net64::bin_op(
-            Net64::pipe_op(self.bent_pitch(), Net64::wrap(synth)),
+            Net64::wrap(pitched_sound),
             self.volume(adjuster),
             FrameMul::new(),
         ))

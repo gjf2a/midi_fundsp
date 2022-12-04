@@ -4,10 +4,11 @@ use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{
-        choose_midi_device, console_choice_from, start_input_thread, Speaker,
-        SynthMsg, start_output_thread,
+        choose_midi_device, console_choice_from, start_input_thread, start_output_thread, Speaker,
+        SynthMsg,
     },
-    sounds::options, sound_builders::ProgramTable,
+    sound_builders::ProgramTable,
+    sounds::options,
 };
 use midir::MidiInput;
 
@@ -26,7 +27,12 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_chooser(midi_msgs: Arc<SegQueue<SynthMsg>>, program_table: Arc<Mutex<ProgramTable>>, reset: Arc<AtomicCell<bool>>, quit: &mut bool) {
+fn run_chooser(
+    midi_msgs: Arc<SegQueue<SynthMsg>>,
+    program_table: Arc<Mutex<ProgramTable>>,
+    reset: Arc<AtomicCell<bool>>,
+    quit: &mut bool,
+) {
     let main_menu = vec!["Pick New Synthesizer Sound", "Pick New MIDI Device", "Quit"];
     reset.store(false);
     while !*quit && !reset.load() {

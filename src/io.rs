@@ -12,13 +12,14 @@ use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
 use std::sync::{Arc, Mutex};
 
-use crate::{SharedMidiState, SynthFunc, MAX_MIDI_VALUE, sound_builders::ProgramTable};
+use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
 
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 #[derive(Clone)]
 pub struct SynthMsg {
-    pub msg: MidiMsg, pub speaker: Speaker
+    pub msg: MidiMsg,
+    pub speaker: Speaker,
 }
 
 impl SynthMsg {
@@ -33,33 +34,34 @@ impl SynthMsg {
     }
 
     fn mode_msg(msg: ChannelModeMsg, speaker: Speaker) -> Self {
-        Self {msg: MidiMsg::ChannelMode {
+        Self {
+            msg: MidiMsg::ChannelMode {
                 channel: midi_msg::Channel::Ch1,
                 msg,
             },
-            speaker
+            speaker,
         }
     }
 
     /// Returns MIDI `Program Change` message. This selects the synthesizer sound with the given index.
     pub fn program_change(program: u8, speaker: Speaker) -> Self {
         Self {
-            msg: MidiMsg::ChannelVoice { 
-                channel: midi_msg::Channel::Ch1, 
-                msg: ChannelVoiceMsg::ProgramChange { program }
+            msg: MidiMsg::ChannelVoice {
+                channel: midi_msg::Channel::Ch1,
+                msg: ChannelVoiceMsg::ProgramChange { program },
             },
-            speaker
+            speaker,
         }
     }
 }
 
-/// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each message received is 
+/// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each message received is
 /// stored in a `SynthMsg` object and placed in the `midi_msgs` queue.
-/// 
+///
 /// If `true` is stored in `quit`, the thread exits.
 /// If `print_incoming_msg` is `true`, each incoming MIDI message will be printed to the console.
-/// 
-/// The functions `get_first_midi_device()` and `choose_midi_device()` are examples of how to 
+///
+/// The functions `get_first_midi_device()` and `choose_midi_device()` are examples of how to
 /// select a value for `in_port`.
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
@@ -74,7 +76,10 @@ pub fn start_input_thread(
                 "midir-read-input",
                 move |_stamp, message, _| {
                     let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-                    midi_msgs.push(SynthMsg {msg, speaker: Speaker::Both});
+                    midi_msgs.push(SynthMsg {
+                        msg,
+                        speaker: Speaker::Both,
+                    });
                 },
                 (),
             )
@@ -84,16 +89,20 @@ pub fn start_input_thread(
 }
 
 /// Plays sounds according to instructions received in the `midi_msgs` queue. Synthesizer sounds may be selected with
-/// MIDI `Program Change` messages that reference sounds stored in `program_table`. 
-/// 
+/// MIDI `Program Change` messages that reference sounds stored in `program_table`.
+///
 /// The constant value `N` is the number of distinct sounds it can emit. Each MIDI `Note On` message uses one distinct
 /// sound. When a number of `Note On` messages greater than `N` has been received, the sound used by the oldest `Note On`
-/// message is reused for the new `Note On` message. 
-/// 
+/// message is reused for the new `Note On` message.
+///
 /// Setting `N = 1` yields a monophonic synthesizer. Setting `N = 10` should suffice for most purposes.
-/// 
+///
 /// If `true` is stored in `quit`, the thread exits.
-pub fn start_output_thread<const N: usize>(midi_msgs: Arc<SegQueue<SynthMsg>>, program_table: Arc<Mutex<ProgramTable>>, quit: Arc<AtomicCell<bool>>) {
+pub fn start_output_thread<const N: usize>(
+    midi_msgs: Arc<SegQueue<SynthMsg>>,
+    program_table: Arc<Mutex<ProgramTable>>,
+    quit: Arc<AtomicCell<bool>>,
+) {
     std::thread::spawn(move || {
         let mut player = StereoPlayer::<N>::new(program_table);
         player.run_output(midi_msgs, quit).unwrap();
@@ -268,8 +277,7 @@ pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPo
             for port in in_ports.iter() {
                 choices.push((midi_in.port_name(port)?, port));
             }
-            let c =
-                console_choice_from("Select MIDI Device", &choices, |choice| choice.0.as_str());
+            let c = console_choice_from("Select MIDI Device", &choices, |choice| choice.0.as_str());
             Ok(choices[c].1.clone())
         }
     }
@@ -299,7 +307,7 @@ struct MonoPlayer<const N: usize> {
     recent_pitches: [Option<u8>; N],
     synth_func: SynthFunc,
     master_volume: Shared<f64>,
-    program_table: Arc<Mutex<ProgramTable>>, 
+    program_table: Arc<Mutex<ProgramTable>>,
 }
 
 impl<const N: usize> MonoPlayer<N> {
@@ -315,7 +323,7 @@ impl<const N: usize> MonoPlayer<N> {
             recent_pitches: [None; N],
             synth_func,
             master_volume: shared(1.0),
-            program_table
+            program_table,
         }
     }
 

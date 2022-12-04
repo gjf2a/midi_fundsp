@@ -37,21 +37,28 @@ impl Adsr {
             Net64::wrap(timed_sound),
         )
     }
-}
 
-pub fn adsr_timed_moog(
-    state: &SharedMidiState,
-    source: Box<dyn AudioUnit64>,
-    adsr: Adsr,
-) -> Box<dyn AudioUnit64> {
-    Box::new(Net64::pipe_op(
-        Net64::stack_op(
-            Net64::wrap(source),
-            Net64::pipe_op(
-                adsr.net64ed(state),
-                Net64::wrap(Box::new(envelope2(move |_, n| xerp(1100.0, 11000.0, n)))),
+    pub fn timed_moog(&self, source: Box<dyn AudioUnit64>, state: &SharedMidiState) -> Net64 {
+        Net64::pipe_op(
+            Net64::stack_op(
+                Net64::wrap(source),
+                Net64::pipe_op(
+                    self.net64ed(state),
+                    Net64::wrap(Box::new(envelope2(move |_, n| xerp(1100.0, 11000.0, n)))),
+                ),
             ),
-        ),
-        Net64::wrap(Box::new(moog_q(0.6))),
-    ))
+            Net64::wrap(Box::new(moog_q(0.6))),
+        )
+    }
+
+    pub fn assemble_timed(
+        &self,
+        timed_sound: Box<dyn AudioUnit64>,
+        state: &SharedMidiState,
+    ) -> Box<dyn AudioUnit64> {
+        state.assemble_pitched_sound(
+            Box::new(self.timed_sound(timed_sound, state)),
+            self.boxed(state),
+        )
+    }
 }
