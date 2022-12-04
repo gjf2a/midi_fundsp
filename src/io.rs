@@ -66,7 +66,6 @@ pub fn start_input_thread(
     midi_in: MidiInput,
     in_port: MidiInputPort,
     quit: Arc<AtomicCell<bool>>,
-    print_incoming_msg: bool,
 ) {
     std::thread::spawn(move || {
         let _conn_in = midi_in
@@ -75,9 +74,6 @@ pub fn start_input_thread(
                 "midir-read-input",
                 move |_stamp, message, _| {
                     let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-                    if print_incoming_msg {
-                        println!("{msg:?}");
-                    }
                     midi_msgs.push(SynthMsg {msg, speaker: Speaker::Both});
                 },
                 (),

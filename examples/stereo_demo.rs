@@ -14,14 +14,15 @@ fn main() -> anyhow::Result<()> {
     let in_port = get_first_midi_device(&mut midi_in)?;
     let midi_msgs = Arc::new(SegQueue::new());
     let quit = Arc::new(AtomicCell::new(false));
-    start_input_thread(midi_msgs.clone(), midi_in, in_port, quit.clone(), true);
+    start_input_thread(midi_msgs.clone(), midi_in, in_port, quit.clone());
     let stereo_msgs = Arc::new(SegQueue::new());
     stereo_msgs.push(SynthMsg::program_change(1, Speaker::Left));
     let program_table = Arc::new(Mutex::new(moogs()));
     start_output_thread::<10>(stereo_msgs.clone(), program_table, quit);
-    println!("Loops indefinitely. Use CTRL-C to exit.");
+    println!("Loops indefinitely, printing MIDI inputs as they arrive.\n\nUse CTRL-C to exit.");
     loop {
         if let Some(mut midi_msg) = midi_msgs.pop() {
+            println!("{:?}", midi_msg.msg);
             midi_msg.speaker = side_from_pitch(&midi_msg);
             stereo_msgs.push(midi_msg);
         }
