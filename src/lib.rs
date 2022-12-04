@@ -29,8 +29,7 @@ pub mod io;
 pub mod sound_builders;
 pub mod sounds;
 
-use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit64, FrameMul, Net64, Shared, Var, envelope2};
-use fundsp::prelude::Envelope2;
+use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit64, FrameMul, Net64, Shared, Var};
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -125,8 +124,7 @@ impl SharedMidiState {
         adjuster: Box<dyn AudioUnit64>,
     ) -> Box<dyn AudioUnit64> {
         Box::new(Net64::bin_op(
-            Net64::pipe_op(Net64::wrap(pitched_sound), Net64::wrap(Box::new(compress(1.1, 0.5)))),
-            //Net64::wrap(pitched_sound),
+            Net64::wrap(pitched_sound),
             self.volume(adjuster),
             FrameMul::new(),
         ))
@@ -158,17 +156,4 @@ impl SharedMidiState {
 /// Converts MIDI pitch-bend message to +/- 1 semitone.
 pub fn pitch_bend_factor(bend: u16) -> f64 {
     2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
-}
-
-pub fn compress(ratio: f64, threshold: f64) -> An<Envelope2<f64, f64, impl Fn(f64,f64)->f64 + Sized + Clone, f64>> {
-    assert!(ratio > 1.0);
-    assert!(threshold > 0.0);
-    envelope2(move |_,f| {
-        let extra = f - threshold;
-        if extra <= 0.0 {
-            f
-        } else {
-            threshold + extra / ratio
-        }
-    })
 }

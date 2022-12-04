@@ -26,6 +26,20 @@ pub fn options() -> ProgramTable {
     ]
 }
 
+pub fn favorites() -> ProgramTable {
+    program_table![
+        ("Simple Triangle", simple_triangle),
+        ("Triangle", adsr_triangle),
+        ("Saw", adsr_saw),
+        ("Square", adsr_square),
+        ("Pulse", adsr_pulse),
+        ("Moog Triangle", moog_triangle),
+        ("Moog Saw", moog_saw),
+        ("Moog Square", moog_square),
+        ("Moog Pulse", moog_pulse)
+    ]
+}
+
 pub fn moogs() -> ProgramTable {
     program_table![
         ("Moog Triangle", moog_triangle),
