@@ -28,7 +28,7 @@ pub fn options() -> ProgramTable {
 
 pub fn favorites() -> ProgramTable {
     program_table![
-        ("Simple Triangle", simple_triangle),
+        ("80s Beep", simple_triangle),
         ("Triangle", adsr_triangle),
         ("Saw", adsr_saw),
         ("Square", adsr_square),
