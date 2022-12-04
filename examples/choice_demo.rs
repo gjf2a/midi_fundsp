@@ -4,8 +4,8 @@ use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{
-        choose_midi_device, console_choice_from, start_input_thread, Speaker, StereoPlayer,
-        SynthMsg,
+        choose_midi_device, console_choice_from, start_input_thread, Speaker,
+        SynthMsg, start_output_thread,
     },
     sounds::options, sound_builders::ProgramTable,
 };
@@ -20,23 +20,17 @@ fn main() -> anyhow::Result<()> {
         let midi_msgs = Arc::new(SegQueue::new());
         start_input_thread(midi_msgs.clone(), midi_in, in_port, reset.clone(), false);
         let program_table = Arc::new(Mutex::new(options()));
-        start_output_thread(midi_msgs.clone(), program_table.clone(), reset.clone());
+        start_output_thread::<10>(midi_msgs.clone(), program_table.clone(), reset.clone());
         run_chooser(midi_msgs, program_table.clone(), reset.clone(), &mut quit);
     }
     Ok(())
-}
-
-fn start_output_thread(midi_msgs: Arc<SegQueue<SynthMsg>>, program_table: Arc<Mutex<ProgramTable>>, quit: Arc<AtomicCell<bool>>) {
-    std::thread::spawn(move || {
-        let mut player = StereoPlayer::<10>::new(program_table);
-        player.run_output(midi_msgs, quit).unwrap();
-    });
 }
 
 fn run_chooser(midi_msgs: Arc<SegQueue<SynthMsg>>, program_table: Arc<Mutex<ProgramTable>>, reset: Arc<AtomicCell<bool>>, quit: &mut bool) {
     let main_menu = vec!["Pick New Synthesizer Sound", "Pick New MIDI Device", "Quit"];
     reset.store(false);
     while !*quit && !reset.load() {
+        println!("Play notes at will. When ready for a change, select one of the following:");
         match console_choice_from("Choice", &main_menu, |s| *s) {
             0 => {
                 let program = {

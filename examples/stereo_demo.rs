@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
-    io::{get_first_midi_device, start_input_thread, Speaker, StereoPlayer, SynthMsg},
+    io::{get_first_midi_device, start_input_thread, Speaker, SynthMsg, start_output_thread},
     sounds::{moogs},
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
@@ -16,20 +16,16 @@ fn main() -> anyhow::Result<()> {
     let quit = Arc::new(AtomicCell::new(false));
     start_input_thread(midi_msgs.clone(), midi_in, in_port, quit.clone(), true);
     let stereo_msgs = Arc::new(SegQueue::new());
-    {
-        let stereo_msgs = stereo_msgs.clone();
-        std::thread::spawn(move || loop {
-            if let Some(mut midi_msg) = midi_msgs.pop() {
-                midi_msg.speaker = side_from_pitch(&midi_msg);
-                stereo_msgs.push(midi_msg);
-            }
-        });
-    }
-    let program_table = Arc::new(Mutex::new(moogs()));
-    let mut player = StereoPlayer::<10>::new(program_table.clone());
     stereo_msgs.push(SynthMsg::program_change(1, Speaker::Left));
-    player.run_output(stereo_msgs, quit)?;
-    Ok(())
+    let program_table = Arc::new(Mutex::new(moogs()));
+    start_output_thread::<10>(stereo_msgs.clone(), program_table, quit);
+    println!("Loops indefinitely. Use CTRL-C to exit.");
+    loop {
+        if let Some(mut midi_msg) = midi_msgs.pop() {
+            midi_msg.speaker = side_from_pitch(&midi_msg);
+            stereo_msgs.push(midi_msg);
+        }
+    }
 }
 
 fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {

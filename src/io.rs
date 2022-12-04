@@ -41,6 +41,7 @@ impl SynthMsg {
         }
     }
 
+    /// Returns MIDI `Program Change` message. This selects the synthesizer sound with the given index.
     pub fn program_change(program: u8, speaker: Speaker) -> Self {
         Self {
             msg: MidiMsg::ChannelVoice { 
@@ -52,7 +53,14 @@ impl SynthMsg {
     }
 }
 
-///
+/// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each message received is 
+/// stored in a `SynthMsg` object and placed in the `midi_msgs` queue.
+/// 
+/// If `true` is stored in `quit`, the thread exits.
+/// If `print_incoming_msg` is `true`, each incoming MIDI message will be printed to the console.
+/// 
+/// The functions `get_first_midi_device()` and `choose_midi_device()` are examples of how to 
+/// select a value for `in_port`.
 pub fn start_input_thread(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
     midi_in: MidiInput,
@@ -79,6 +87,23 @@ pub fn start_input_thread(
     });
 }
 
+/// Plays sounds according to instructions received in the `midi_msgs` queue. Synthesizer sounds may be selected with
+/// MIDI `Program Change` messages that reference sounds stored in `program_table`. 
+/// 
+/// The constant value `N` is the number of distinct sounds it can emit. Each MIDI `Note On` message uses one distinct
+/// sound. When a number of `Note On` messages greater than `N` has been received, the sound used by the oldest `Note On`
+/// message is reused for the new `Note On` message. 
+/// 
+/// Setting `N = 1` yields a monophonic synthesizer. Setting `N = 10` should suffice for most purposes.
+/// 
+/// If `true` is stored in `quit`, the thread exits.
+pub fn start_output_thread<const N: usize>(midi_msgs: Arc<SegQueue<SynthMsg>>, program_table: Arc<Mutex<ProgramTable>>, quit: Arc<AtomicCell<bool>>) {
+    std::thread::spawn(move || {
+        let mut player = StereoPlayer::<N>::new(program_table);
+        player.run_output(midi_msgs, quit).unwrap();
+    });
+}
+
 #[derive(Copy, Clone)]
 pub enum Speaker {
     Left,
@@ -87,6 +112,7 @@ pub enum Speaker {
 }
 
 impl Speaker {
+    /// Value for using a `Speaker` as an array index.
     pub fn i(&self) -> usize {
         *self as usize
     }
@@ -97,7 +123,7 @@ pub struct StereoPlayer<const N: usize> {
 }
 
 impl<const N: usize> StereoPlayer<N> {
-    pub fn new(program_table: Arc<Mutex<ProgramTable>>) -> Self {
+    fn new(program_table: Arc<Mutex<ProgramTable>>) -> Self {
         let sounds = [
             MonoPlayer::<N>::new(program_table.clone()),
             MonoPlayer::<N>::new(program_table),
@@ -112,7 +138,7 @@ impl<const N: usize> StereoPlayer<N> {
         )
     }
 
-    pub fn run_output(
+    fn run_output(
         &mut self,
         midi_msgs: Arc<SegQueue<SynthMsg>>,
         quit: Arc<AtomicCell<bool>>,
@@ -129,12 +155,12 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn act<F: FnMut(&mut MonoPlayer<N>)>(&mut self, speaker: Speaker, mut action: F) {
+    fn decode(&mut self, speaker: Speaker, msg: &MidiMsg, synth_changed: &mut bool) {
         match speaker {
-            Speaker::Left | Speaker::Right => action(&mut self.sounds[speaker.i()]),
+            Speaker::Left | Speaker::Right => self.sounds[speaker.i()].decode(msg, synth_changed),
             Speaker::Both => {
                 for sound in self.sounds.iter_mut() {
-                    action(sound);
+                    sound.decode(msg, synth_changed);
                 }
             }
         }
@@ -183,7 +209,7 @@ impl<const N: usize> StereoPlayer<N> {
         let mut synth_changed = false;
         while !synth_changed && !quit.load() {
             if let Some(msg) = midi_msgs.pop() {
-                self.act(msg.speaker, |s| s.decode(&msg.msg, &mut synth_changed));
+                self.decode(msg.speaker, &msg.msg, &mut synth_changed);
             }
         }
     }
