@@ -32,6 +32,7 @@ pub mod sounds;
 use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit64, FrameMul, Net64, Shared, Var};
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::{Instant, Duration};
 
 /// MIDI values for pitch and velocity range from 0 to 127.
 pub const MAX_MIDI_VALUE: u8 = 127;
@@ -107,7 +108,7 @@ impl SharedMidiState {
 
     /// Pipes the current `bent_pitch()` into `synth`, then multiplies by `volume(adjuster)` to
     /// produce the final sound.
-    pub fn assemble_sound(
+    pub fn assemble_unpitched_sound(
         &self,
         synth: Box<dyn AudioUnit64>,
         adjuster: Box<dyn AudioUnit64>,
@@ -124,14 +125,14 @@ impl SharedMidiState {
         adjuster: Box<dyn AudioUnit64>,
     ) -> Box<dyn AudioUnit64> {
         Box::new(Net64::bin_op(
-            Net64::wrap(pitched_sound),
+            Net64::wrap(pitched_sound), 
             self.volume(adjuster),
             FrameMul::new(),
         ))
     }
 
     /// Encodes a MIDI `Note On` event.
-    pub fn on(&mut self, pitch: u8, velocity: u8) {
+    pub fn on(&self, pitch: u8, velocity: u8) {
         self.pitch.set_value(midi_hz(pitch as f64));
         self.velocity
             .set_value(velocity as f64 / MAX_MIDI_VALUE as f64);
@@ -139,7 +140,7 @@ impl SharedMidiState {
     }
 
     /// Encodes a MIDI `Note Off` event.
-    pub fn off(&mut self) {
+    pub fn off(&self) {
         self.control.set_value(CONTROL_OFF);
     }
 
@@ -147,7 +148,7 @@ impl SharedMidiState {
     ///
     /// Algorithm from: https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/
     /// Converts MIDI pitch-bend message to +/- 1 semitone.
-    pub fn bend(&mut self, bend: u16) {
+    pub fn bend(&self, bend: u16) {
         self.pitch_bend.set_value(pitch_bend_factor(bend));
     }
 }
@@ -156,4 +157,56 @@ impl SharedMidiState {
 /// Converts MIDI pitch-bend message to +/- 1 semitone.
 pub fn pitch_bend_factor(bend: u16) -> f64 {
     2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
+}
+
+#[derive(Debug)]
+pub struct SoundTestResult {
+    total: f64,
+    count: usize,
+    min: f64,
+    max: f64
+}
+
+impl SoundTestResult {
+    pub fn add_value(&mut self, value: f64) {
+        self.count += 1;
+        self.total += value;
+        if value < self.min {
+            self.min = value;
+        }
+        if value > self.max {
+            self.max = value;
+        }
+    }
+
+    pub fn report(&self) {
+        println!("{} ({}..{})", self.total / self.count as f64, self.min, self.max);
+    }
+}
+
+impl Default for SoundTestResult {
+    fn default() -> Self {
+        Self { total: Default::default(), count: Default::default(), min: f64::MAX, max: f64::MIN }
+    }
+}
+
+impl SoundTestResult {
+    pub fn test(sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>) -> Self {
+        const SAMPLE_RATE: f64 = 44100.0;
+        const DURATION: f64 = 5.0;
+        const SLEEP_TIME: f64 = 1.0 / SAMPLE_RATE;
+
+        let mut result = Self::default();
+        let state = SharedMidiState::default();
+        let mut sound = sound(&state);
+        sound.reset(Some(SAMPLE_RATE));
+        let mut next_value = move || sound.get_mono();
+        let start = Instant::now();
+        state.on(60, 127);
+        while start.elapsed().as_secs_f64() < DURATION {
+            result.add_value(next_value());
+            std::thread::sleep(Duration::from_secs_f64(SLEEP_TIME));
+        }
+        result
+    }
 }

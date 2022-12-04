@@ -7,7 +7,7 @@ pub type ProgramTable = Vec<(String, SynthFunc)>;
 
 pub fn simple_sound(state: &SharedMidiState, synth: Box<dyn AudioUnit64>) -> Box<dyn AudioUnit64> {
     let control = state.control_var();
-    state.assemble_sound(
+    state.assemble_unpitched_sound(
         synth,
         Box::new(control >> envelope2(move |_, n| clamp01(n))),
     )

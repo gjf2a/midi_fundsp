@@ -19,7 +19,6 @@ pub fn options() -> ProgramTable {
         ("Pulse", adsr_pulse),
         ("DSF Saw", adsr_dsf_saw),
         ("DSF Square", adsr_dsf_square),
-        ("Moog Triangle", moog_triangle),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse)
@@ -33,7 +32,6 @@ pub fn favorites() -> ProgramTable {
         ("Saw", adsr_saw),
         ("Square", adsr_square),
         ("Pulse", adsr_pulse),
-        ("Moog Triangle", moog_triangle),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse)
@@ -42,7 +40,6 @@ pub fn favorites() -> ProgramTable {
 
 pub fn moogs() -> ProgramTable {
     program_table![
-        ("Moog Triangle", moog_triangle),
         ("Moog Pulse", moog_pulse),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square)
@@ -50,7 +47,7 @@ pub fn moogs() -> ProgramTable {
 }
 
 pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    simple_sound(state, Box::new(triangle()))
+    simple_sound(state, Box::new(triangle() * 4.4))
 }
 
 pub const ADSR1: Adsr = Adsr {
@@ -93,57 +90,50 @@ pub fn adsr_pluck(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 */
 
 pub fn adsr_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(Box::new(triangle()), ADSR1.boxed(state))
+    state.assemble_unpitched_sound(Box::new(triangle() * 4.4), ADSR1.boxed(state))
 }
 
 pub fn adsr_sine(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(Box::new(sine()), ADSR1.boxed(state))
+    state.assemble_unpitched_sound(Box::new(sine()), ADSR1.boxed(state))
 }
 
 pub fn adsr_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(Box::new(saw()), ADSR1.boxed(state))
+    state.assemble_unpitched_sound(Box::new(saw() * 2.3), ADSR1.boxed(state))
 }
 
 pub fn adsr_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(Box::new(square()), ADSR1.boxed(state))
+    state.assemble_unpitched_sound(Box::new(square() * 2.5), ADSR1.boxed(state))
 }
 
 pub fn adsr_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    ADSR2.assemble_timed(Box::new(pulse()), state)
+    ADSR2.assemble_timed(Box::new(pulse() * 2.8), state)
 }
 
 pub fn adsr_dsf_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    ADSR2.assemble_timed(Box::new(dsf_saw()), state)
+    ADSR2.assemble_timed(Box::new(dsf_saw() * 0.08), state)
 }
 
 pub fn adsr_dsf_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    ADSR2.assemble_timed(Box::new(dsf_square()), state)
-}
-
-pub fn moog_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(
-        Box::new(ADSR2.timed_moog(Box::new(triangle()), state)),
-        ADSR2.boxed(state),
-    )
+    ADSR2.assemble_timed(Box::new(dsf_square() * 0.08), state)
 }
 
 pub fn moog_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_pitched_sound(
-        Box::new(ADSR2.timed_moog(Box::new(ADSR2.timed_sound(Box::new(pulse()), state)), state)),
+        Box::new(ADSR2.timed_moog(Box::new(ADSR2.timed_sound(Box::new(pulse()* 4.5), state)), state)),
         ADSR2.boxed(state),
     )
 }
 
 pub fn moog_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(
-        Box::new(ADSR2.timed_moog(Box::new(square()), state)),
+    state.assemble_unpitched_sound(
+        Box::new(ADSR2.timed_moog(Box::new(square() * 5.625), state)),
         ADSR2.boxed(state),
     )
 }
 
 pub fn moog_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_sound(
-        Box::new(ADSR2.timed_moog(Box::new(saw()), state)),
+    state.assemble_unpitched_sound(
+        Box::new(ADSR2.timed_moog(Box::new(saw() * 5.0), state)),
         ADSR2.boxed(state),
     )
 }
