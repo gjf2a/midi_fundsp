@@ -2,7 +2,13 @@
 name = "midi_fundsp"
 version = "0.1.0"
 edition = "2021"
-
+description = "Enables creation of live MIDI synthesizer software."
+readme = "README.md"
+homepage = "https://github.com/gjf2a/midi_fundsp"
+repository = "https://github.com/gjf2a/midi_fundsp"
+license = "MIT OR Apache-2.0"
+keywords = ["music", "synthesis", "midi", "synthesizer", "synth", "audio"]
+categories = ["hardware-support", "multimedia::audio"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

@@ -245,7 +245,7 @@ impl<const N: usize> StereoPlayer<N> {
     }
 }
 
-/// Presents a list of items to be selected via console input. Used in multiple 
+/// Presents a list of items to be selected via console input. Used in multiple
 /// [example](https://github.com/gjf2a/midi_fundsp/tree/master/examples) programs.
 pub fn console_choice_from<T, F: Fn(&T) -> &str>(
     prompt: &str,

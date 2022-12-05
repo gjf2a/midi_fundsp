@@ -65,6 +65,8 @@ and how to [change the selection of synthesizer sound and MIDI input device whil
   * Note Off
   * Pitch Bend
   * Program Change
+    * Program change numbers correspond to indices in the `ProgramTable`
+    * These can originate either from a MIDI input device or from [software](https://github.com/gjf2a/midi_fundsp/blob/master/examples/choice_demo.rs)
   * All Notes Off
   * All Sound Off
   

@@ -45,7 +45,7 @@ impl Adsr {
         Net64::wrap(self.boxed(state))
     }
 
-    /// Stacks pitch with an ADSR and pipes them into `timed_sound`. Useful for any sound needing two 
+    /// Stacks pitch with an ADSR and pipes them into `timed_sound`. Useful for any sound needing two
     /// inputs, where the first is a pitch and the second is time-varying information.
     pub fn timed_sound(&self, timed_sound: Box<dyn AudioUnit64>, state: &SharedMidiState) -> Net64 {
         Net64::pipe_op(

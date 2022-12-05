@@ -3,7 +3,7 @@ use std::sync::Arc;
 use fundsp::hacker::{dsf_saw, dsf_square, pulse, saw, sine, square, triangle, AudioUnit64};
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
-use crate::{SharedMidiState, program_table};
+use crate::{program_table, SharedMidiState};
 
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {
@@ -129,7 +129,10 @@ pub fn adsr_dsf_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 /// Pulse wave through a Moog filter modulated by an ADSR.
 pub fn moog_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_pitched_sound(
-        Box::new(ADSR2.timed_moog(Box::new(ADSR2.timed_sound(Box::new(pulse()* 4.5), state)), state)),
+        Box::new(ADSR2.timed_moog(
+            Box::new(ADSR2.timed_sound(Box::new(pulse() * 4.5), state)),
+            state,
+        )),
         ADSR2.boxed(state),
     )
 }

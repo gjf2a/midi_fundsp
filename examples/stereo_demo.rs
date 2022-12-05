@@ -4,7 +4,9 @@ use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{get_first_midi_device, start_input_thread, start_output_thread, Speaker, SynthMsg},
-    sounds::{adsr_pulse, moog_pulse}, program_table, sound_builders::ProgramTable,
+    program_table,
+    sound_builders::ProgramTable,
+    sounds::{adsr_pulse, moog_pulse},
 };
 use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
@@ -22,7 +24,11 @@ fn main() -> anyhow::Result<()> {
     stereo_msgs.push(SynthMsg::program_change(1, Speaker::Left));
     start_output_thread::<10>(stereo_msgs.clone(), stereo_table, quit);
 
+    println!("Play notes at will.");
+    println!("Notes below middle C will be played on the left speaker with a pulse wave.");
+    println!("Notes at middle C or above will be played on the right speaker with a pulse wave through a Moog filter.");
     println!("Loops indefinitely, printing MIDI inputs as they arrive.\n\nUse CTRL-C to exit.");
+
     loop {
         if let Some(mut midi_msg) = midi_msgs.pop() {
             println!("{:?}", midi_msg.msg);
@@ -50,8 +56,5 @@ fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {
 }
 
 fn stereo_table() -> ProgramTable {
-    program_table![
-        ("Moog Pulse", moog_pulse),
-        ("Pulse", adsr_pulse)
-    ]
+    program_table![("Moog Pulse", moog_pulse), ("Pulse", adsr_pulse)]
 }

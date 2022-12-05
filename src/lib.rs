@@ -32,7 +32,7 @@ pub mod sounds;
 use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit64, FrameMul, Net64, Shared, Var};
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 /// MIDI values for pitch and velocity range from 0 to 127.
 pub const MAX_MIDI_VALUE: u8 = 127;
@@ -127,7 +127,7 @@ impl SharedMidiState {
         adjuster: Box<dyn AudioUnit64>,
     ) -> Box<dyn AudioUnit64> {
         Box::new(Net64::bin_op(
-            Net64::wrap(pitched_sound), 
+            Net64::wrap(pitched_sound),
             self.volume(adjuster),
             FrameMul::new(),
         ))
@@ -168,7 +168,7 @@ pub struct SoundTestResult {
     total: f64,
     count: usize,
     min: f64,
-    max: f64
+    max: f64,
 }
 
 impl SoundTestResult {
@@ -186,13 +186,23 @@ impl SoundTestResult {
 
     /// Report the mean, minimum, and maximum.
     pub fn report(&self) {
-        println!("{} ({}..{})", self.total / self.count as f64, self.min, self.max);
+        println!(
+            "{} ({}..{})",
+            self.total / self.count as f64,
+            self.min,
+            self.max
+        );
     }
 }
 
 impl Default for SoundTestResult {
     fn default() -> Self {
-        Self { total: Default::default(), count: Default::default(), min: f64::MAX, max: f64::MIN }
+        Self {
+            total: Default::default(),
+            count: Default::default(),
+            min: f64::MAX,
+            max: f64::MIN,
+        }
     }
 }
 
@@ -205,10 +215,11 @@ pub const DURATION: f64 = 5.0;
 const SLEEP_TIME: f64 = 1.0 / SAMPLE_RATE;
 
 impl SoundTestResult {
-
-    /// Tests the given `sound` by playing a middle C note for `DURATION` seconds at `SAMPLE_RATE`. 
+    /// Tests the given `sound` by playing a middle C note for `DURATION` seconds at `SAMPLE_RATE`.
     /// Returns a `SoundTestResult` that summarizes the resuts.
-    pub fn test(sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>) -> Self {
+    pub fn test(
+        sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>,
+    ) -> Self {
         let mut result = Self::default();
         let state = SharedMidiState::default();
         let mut sound = sound(&state);
