@@ -16,7 +16,7 @@ use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_V
 
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
 /// corresponding to the message.
 pub struct SynthMsg {
@@ -111,7 +111,7 @@ pub fn start_output_thread<const N: usize>(
     });
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 /// Represents whether a sound should go to the left, right, or both speakers.
 pub enum Speaker {
     Left,
