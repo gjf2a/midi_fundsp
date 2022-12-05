@@ -3,12 +3,9 @@ use std::sync::Arc;
 use fundsp::hacker::{dsf_saw, dsf_square, pulse, saw, sine, square, triangle, AudioUnit64};
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
-use crate::SharedMidiState;
+use crate::{SharedMidiState, program_table};
 
-macro_rules! program_table {
-    ($( ($s:expr, $f:expr)),* ) => {vec![$(($s.to_owned(), Arc::new($f)),)*]}
-}
-
+/// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {
     program_table![
         ("Simple Triangle", simple_triangle),
@@ -25,6 +22,7 @@ pub fn options() -> ProgramTable {
     ]
 }
 
+/// Returns a `ProgramTable` containing sounds that are personal favorites of the crate author.
 pub fn favorites() -> ProgramTable {
     program_table![
         ("80s Beep", simple_triangle),
@@ -38,6 +36,7 @@ pub fn favorites() -> ProgramTable {
     ]
 }
 
+/// Returns a `ProgramTable` containing Moog sounds.
 pub fn moogs() -> ProgramTable {
     program_table![
         ("Moog Pulse", moog_pulse),
@@ -46,10 +45,12 @@ pub fn moogs() -> ProgramTable {
     ]
 }
 
+/// Returns an on-off Triangle wave.
 pub fn simple_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     simple_sound(state, Box::new(triangle() * 4.4))
 }
 
+/// ADSR envelope used in some sounds.
 pub const ADSR1: Adsr = Adsr {
     attack: 0.1,
     decay: 0.2,
@@ -57,6 +58,7 @@ pub const ADSR1: Adsr = Adsr {
     release: 0.4,
 };
 
+/// ADSR envelope used in sounds benefiting from a long decay and release.
 pub const ADSR2: Adsr = Adsr {
     attack: 0.1,
     decay: 0.4,
@@ -89,34 +91,42 @@ pub fn adsr_pluck(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 }
 */
 
+/// Triangle wave modulated by an ADSR.
 pub fn adsr_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(triangle() * 4.4), ADSR1.boxed(state))
 }
 
+/// Sine wave modulated by an ADSR.
 pub fn adsr_sine(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(sine()), ADSR1.boxed(state))
 }
 
+/// Sawtooth wave modulated by an ADSR.
 pub fn adsr_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(saw() * 2.3), ADSR1.boxed(state))
 }
 
+/// Square wave modulated by an ADSR.
 pub fn adsr_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(square() * 2.5), ADSR1.boxed(state))
 }
 
+/// Pulse wave modulated by an ADSR.
 pub fn adsr_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     ADSR2.assemble_timed(Box::new(pulse() * 2.8), state)
 }
 
+/// DSF Sawtooth wave modulated by an ADSR.
 pub fn adsr_dsf_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     ADSR2.assemble_timed(Box::new(dsf_saw() * 0.08), state)
 }
 
+/// DSF Square wave modulated by an ADSR.
 pub fn adsr_dsf_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     ADSR2.assemble_timed(Box::new(dsf_square() * 0.08), state)
 }
 
+/// Pulse wave through a Moog filter modulated by an ADSR.
 pub fn moog_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_pitched_sound(
         Box::new(ADSR2.timed_moog(Box::new(ADSR2.timed_sound(Box::new(pulse()* 4.5), state)), state)),
@@ -124,6 +134,7 @@ pub fn moog_pulse(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     )
 }
 
+/// Square wave through a Moog filter modulated by an ADSR.
 pub fn moog_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(
         Box::new(ADSR2.timed_moog(Box::new(square() * 5.625), state)),
@@ -131,6 +142,7 @@ pub fn moog_square(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     )
 }
 
+/// Sawtooth wave through a Moog filter modulated by an ADSR.
 pub fn moog_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(
         Box::new(ADSR2.timed_moog(Box::new(saw() * 5.0), state)),

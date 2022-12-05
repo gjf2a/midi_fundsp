@@ -17,6 +17,8 @@ use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_V
 const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 #[derive(Clone)]
+/// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
+/// corresponding to the message.
 pub struct SynthMsg {
     pub msg: MidiMsg,
     pub speaker: Speaker,
@@ -110,6 +112,7 @@ pub fn start_output_thread<const N: usize>(
 }
 
 #[derive(Copy, Clone)]
+/// Represents whether a sound should go to the left, right, or both speakers.
 pub enum Speaker {
     Left,
     Right,
@@ -123,7 +126,7 @@ impl Speaker {
     }
 }
 
-pub struct StereoPlayer<const N: usize> {
+struct StereoPlayer<const N: usize> {
     sounds: [MonoPlayer<N>; 2],
 }
 
@@ -242,6 +245,8 @@ impl<const N: usize> StereoPlayer<N> {
     }
 }
 
+/// Presents a list of items to be selected via console input. Used in multiple 
+/// [example](https://github.com/gjf2a/midi_fundsp/tree/master/examples) programs.
 pub fn console_choice_from<T, F: Fn(&T) -> &str>(
     prompt: &str,
     choices: &Vec<T>,
@@ -254,6 +259,7 @@ pub fn console_choice_from<T, F: Fn(&T) -> &str>(
     input().msg(prompt).inside(1..=choices.len()).get() - 1
 }
 
+/// Returns a handle to the first MIDI device detected.
 pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
     midi_in.ignore(Ignore::None);
     let in_ports = midi_in.ports();
@@ -266,6 +272,8 @@ pub fn get_first_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInpu
     }
 }
 
+/// Allows selecting a MIDI device via the console from a complete list of MIDI devices.
+/// The basic concept can be a model of how to do this in a GUI setting.
 pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPort> {
     midi_in.ignore(Ignore::None);
     let in_ports = midi_in.ports();

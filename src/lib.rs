@@ -119,6 +119,8 @@ impl SharedMidiState {
         )
     }
 
+    /// Assumes that the current `bent_pitch()` value has already been incorporated into `pitched_sound`.
+    /// It then multiplies by `volume(adjuster)` to produce the final sound.
     pub fn assemble_pitched_sound(
         &self,
         pitched_sound: Box<dyn AudioUnit64>,
@@ -160,6 +162,8 @@ pub fn pitch_bend_factor(bend: u16) -> f64 {
 }
 
 #[derive(Debug)]
+/// When designing sounds, it can be useful to understand their typical output levels. `SoundTestResult` objects
+/// track the minimum, maximum, and mean output levels.
 pub struct SoundTestResult {
     total: f64,
     count: usize,
@@ -168,6 +172,7 @@ pub struct SoundTestResult {
 }
 
 impl SoundTestResult {
+    /// Add a new value to this `SoundTestResult`.
     pub fn add_value(&mut self, value: f64) {
         self.count += 1;
         self.total += value;
@@ -179,6 +184,7 @@ impl SoundTestResult {
         }
     }
 
+    /// Report the mean, minimum, and maximum.
     pub fn report(&self) {
         println!("{} ({}..{})", self.total / self.count as f64, self.min, self.max);
     }
@@ -190,12 +196,19 @@ impl Default for SoundTestResult {
     }
 }
 
-impl SoundTestResult {
-    pub fn test(sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>) -> Self {
-        const SAMPLE_RATE: f64 = 44100.0;
-        const DURATION: f64 = 5.0;
-        const SLEEP_TIME: f64 = 1.0 / SAMPLE_RATE;
+/// Sample rate of 44.1 kHz for use in `SoundTestResult`.
+pub const SAMPLE_RATE: f64 = 44100.0;
 
+/// Duration of test for `SoundTestResult`.
+pub const DURATION: f64 = 5.0;
+
+const SLEEP_TIME: f64 = 1.0 / SAMPLE_RATE;
+
+impl SoundTestResult {
+
+    /// Tests the given `sound` by playing a middle C note for `DURATION` seconds at `SAMPLE_RATE`. 
+    /// Returns a `SoundTestResult` that summarizes the resuts.
+    pub fn test(sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>) -> Self {
         let mut result = Self::default();
         let state = SharedMidiState::default();
         let mut sound = sound(&state);
