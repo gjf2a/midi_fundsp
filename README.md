@@ -69,6 +69,11 @@ and how to [change the selection of synthesizer sound and MIDI input device whil
     * These can originate either from a MIDI input device or from [software](https://github.com/gjf2a/midi_fundsp/blob/master/examples/choice_demo.rs)
   * All Notes Off
   * All Sound Off
+
+## Acknowledgements
+* Thank you to the authors of [fundsp](https://crates.io/crates/fundsp), [midir](https://crates.io/crates/midir), 
+[midi-msg](https://crates.io/crates/midi-msg), and [cpal](https://crates.io/crates/cpal), who made it possible and practical for me to create this crate. 
+* Special thanks to [Sami Perttu](https://github.com/SamiPerttu), author of [fundsp](https://crates.io/crates/fundsp), for help resolving some technical issues and for incorporating pull requests into [fundsp](https://crates.io/crates/fundsp) that made this crate possible.
   
 ## License
 
