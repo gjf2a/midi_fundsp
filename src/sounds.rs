@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use fundsp::hacker::{dsf_saw, dsf_square, organ, pulse, saw, sine, soft_saw, square, triangle, AudioUnit64};
+use fundsp::hacker::{
+    dsf_saw, dsf_square, organ, pulse, saw, sine, soft_saw, square, triangle, AudioUnit64,
+};
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
 use crate::{program_table, SharedMidiState};
@@ -181,5 +183,8 @@ pub fn moog_soft_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 
 /// Organ wave through a Moog filtered modulated by an ADSR.
 pub fn moog_organ(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    state.assemble_unpitched_sound(Box::new(ADSR2.timed_moog(Box::new(organ() * 6.7), state)), ADSR2.boxed(state))
+    state.assemble_unpitched_sound(
+        Box::new(ADSR2.timed_moog(Box::new(organ() * 6.7), state)),
+        ADSR2.boxed(state),
+    )
 }
