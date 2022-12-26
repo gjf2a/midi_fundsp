@@ -148,15 +148,13 @@ impl SharedMidiState {
 
     /// Encodes a MIDI `Pitch Bend` event.
     ///
-    /// Algorithm from: https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/
-    /// Converts MIDI pitch-bend message to +/- 1 semitone.
+    /// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
     pub fn bend(&self, bend: u16) {
         self.pitch_bend.set_value(pitch_bend_factor(bend));
     }
 }
 
-/// Algorithm from: https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/
-/// Converts MIDI pitch-bend message to +/- 1 semitone.
+/// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
 pub fn pitch_bend_factor(bend: u16) -> f64 {
     2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
 }

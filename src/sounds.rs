@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use fundsp::hacker::{dsf_saw, dsf_square, pulse, saw, sine, square, triangle, AudioUnit64};
+use fundsp::hacker::{dsf_saw, dsf_square, organ, pulse, saw, sine, soft_saw, square, triangle, AudioUnit64};
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
 use crate::{program_table, SharedMidiState};
@@ -10,13 +10,17 @@ pub fn options() -> ProgramTable {
     program_table![
         ("Simple Triangle", simple_triangle),
         ("Triangle", adsr_triangle),
+        ("Organ", adsr_organ),
         ("Sine", adsr_sine),
         ("Saw", adsr_saw),
+        ("Soft Saw", adsr_soft_saw),
         ("Square", adsr_square),
         ("Pulse", adsr_pulse),
         ("DSF Saw", adsr_dsf_saw),
         ("DSF Square", adsr_dsf_square),
+        ("Moog Organ", moog_organ),
         ("Moog Saw", moog_saw),
+        ("Moog Soft Saw", moog_soft_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse)
     ]
@@ -27,9 +31,12 @@ pub fn favorites() -> ProgramTable {
     program_table![
         ("80s Beep", simple_triangle),
         ("Triangle", adsr_triangle),
+        ("Organ", adsr_organ),
         ("Saw", adsr_saw),
+        ("Soft Saw", adsr_soft_saw),
         ("Square", adsr_square),
         ("Pulse", adsr_pulse),
+        ("Moog Organ", moog_organ),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse)
@@ -39,6 +46,7 @@ pub fn favorites() -> ProgramTable {
 /// Returns a `ProgramTable` containing Moog sounds.
 pub fn moogs() -> ProgramTable {
     program_table![
+        ("Moog Organ", moog_organ),
         ("Moog Pulse", moog_pulse),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square)
@@ -96,6 +104,11 @@ pub fn adsr_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(triangle() * 4.4), ADSR1.boxed(state))
 }
 
+/// Organ wave modulated by an ADSR.
+pub fn adsr_organ(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_unpitched_sound(Box::new(organ() * 3.45), ADSR1.boxed(state))
+}
+
 /// Sine wave modulated by an ADSR.
 pub fn adsr_sine(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(sine()), ADSR1.boxed(state))
@@ -104,6 +117,11 @@ pub fn adsr_sine(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
 /// Sawtooth wave modulated by an ADSR.
 pub fn adsr_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
     state.assemble_unpitched_sound(Box::new(saw() * 2.3), ADSR1.boxed(state))
+}
+
+/// Soft sawtooth wave modulated by an ADSR.
+pub fn adsr_soft_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_unpitched_sound(Box::new(soft_saw() * 4.0), ADSR1.boxed(state))
 }
 
 /// Square wave modulated by an ADSR.
@@ -151,4 +169,17 @@ pub fn moog_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
         Box::new(ADSR2.timed_moog(Box::new(saw() * 5.0), state)),
         ADSR2.boxed(state),
     )
+}
+
+/// Sawtooth wave through a Moog filter modulated by an ADSR.
+pub fn moog_soft_saw(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_unpitched_sound(
+        Box::new(ADSR2.timed_moog(Box::new(soft_saw() * 7.6), state)),
+        ADSR2.boxed(state),
+    )
+}
+
+/// Organ wave through a Moog filtered modulated by an ADSR.
+pub fn moog_organ(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
+    state.assemble_unpitched_sound(Box::new(ADSR2.timed_moog(Box::new(organ() * 6.7), state)), ADSR2.boxed(state))
 }
