@@ -100,4 +100,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 ## Updates
 * 0.1.1
   * Updated to `fundsp 0.11`.
-  * Added 'adsr_organ()`, `moog_organ()`, `adsr_soft_saw()`, and `moog_soft_saw()` to `sounds.rs`.
+  * Added `adsr_organ()`, `moog_organ()`, `adsr_soft_saw()`, and `moog_soft_saw()` to `sounds.rs`.
