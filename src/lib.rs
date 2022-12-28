@@ -154,9 +154,14 @@ impl SharedMidiState {
     }
 }
 
-/// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
+/// Converts MIDI pitch-bend message to frequency multiplier over +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
 pub fn pitch_bend_factor(bend: u16) -> f64 {
-    2.0_f64.powf(((bend as f64 - 8192.0) / 8192.0) / 12.0)
+    2.0_f64.powf(semitone_from(bend) / 12.0)
+}
+
+/// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
+pub fn semitone_from(bend: u16) -> f64 {
+    (bend as f64 - 8192.0) / 8192.0
 }
 
 #[derive(Debug)]
