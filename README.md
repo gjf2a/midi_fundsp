@@ -98,6 +98,8 @@ I am very interested in receiving contributions to this library. Here are types 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
 
 ## Updates
+* 0.1.3
+  * Updated to `fundsp 0.12` and `midir 0.9`
 * 0.1.2
   * Added `semitone_from()`.
 * 0.1.1
