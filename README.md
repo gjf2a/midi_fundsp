@@ -69,6 +69,7 @@ and how to [change the selection of synthesizer sound and MIDI input device whil
     * These can originate either from a MIDI input device or from [software](https://github.com/gjf2a/midi_fundsp/blob/master/examples/choice_demo.rs)
   * All Notes Off
   * All Sound Off
+* See [CHANGELOG.md](https://github.com/gjf2a/midi_fundsp/blob/master/CHANGELOG.md) for updates.
 
 ## Acknowledgements
 * Thank you to the authors of [fundsp](https://crates.io/crates/fundsp), [midir](https://crates.io/crates/midir), 
@@ -96,12 +97,3 @@ I am very interested in receiving contributions to this library. Here are types 
   * Open an issue describing your idea, and we will discuss it from there.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
-
-## Updates
-* 0.1.3
-  * Updated to `fundsp 0.12` and `midir 0.9`
-* 0.1.2
-  * Added `semitone_from()`.
-* 0.1.1
-  * Updated to `fundsp 0.11`.
-  * Added `adsr_organ()`, `moog_organ()`, `adsr_soft_saw()`, and `moog_soft_saw()` to `sounds.rs`.

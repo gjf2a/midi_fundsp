@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail};
 use bare_metal_modulo::*;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Sample, SampleFormat, Stream, StreamConfig,
+    Device, Sample, SizedSample, SampleFormat, Stream, StreamConfig, FromSample,
 };
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
@@ -160,6 +160,7 @@ impl<const N: usize> StereoPlayer<N> {
             SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into(), quit),
             SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into(), quit),
             SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into(), quit),
+            sample_format => panic!("Unsupported sample format '{sample_format}'")
         }
     }
 
@@ -174,7 +175,7 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn run_synth<T: Sample>(
+    fn run_synth<T: Sample + SizedSample + FromSample<f64>>(
         &mut self,
         midi_msgs: Arc<SegQueue<SynthMsg>>,
         device: Device,
@@ -222,7 +223,7 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn get_stream<T: Sample>(
+    fn get_stream<T: Sample + SizedSample + FromSample<f64>>(
         &self,
         config: &StreamConfig,
         device: &Device,
@@ -239,7 +240,7 @@ impl<const N: usize> StereoPlayer<N> {
                 move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
                     write_data(data, channels, &mut next_value)
                 },
-                err_fn,
+                err_fn, None
             )
             .or_else(|err| bail!("{err:?}"))
     }
@@ -291,15 +292,15 @@ pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPo
     }
 }
 
-fn write_data<T: Sample>(
+fn write_data<T: Sample + FromSample<f64>>(
     output: &mut [T],
     channels: usize,
     next_sample: &mut dyn FnMut() -> (f64, f64),
 ) {
     for frame in output.chunks_mut(channels) {
         let sample = next_sample();
-        let left: T = Sample::from::<f32>(&(sample.0 as f32));
-        let right: T = Sample::from::<f32>(&(sample.1 as f32));
+        let left: T = Sample::from_sample::<f64>(sample.0);
+        let right: T = Sample::from_sample::<f64>(sample.1);
 
         for (channel, sample) in frame.iter_mut().enumerate() {
             *sample = if channel & 1 == 0 { left } else { right };
