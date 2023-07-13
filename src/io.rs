@@ -230,7 +230,8 @@ impl<const N: usize> StereoPlayer<N> {
     ) -> anyhow::Result<Stream> {
         let sample_rate = config.sample_rate.0 as f64;
         let mut sound = self.sound();
-        sound.reset(Some(sample_rate));
+        sound.reset();
+        sound.set_sample_rate(sample_rate);
         let mut next_value = move || sound.get_stereo();
         let channels = config.channels as usize;
         let err_fn = |err| eprintln!("Error on stream: {err}");

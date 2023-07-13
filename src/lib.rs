@@ -226,7 +226,8 @@ impl SoundTestResult {
         let mut result = Self::default();
         let state = SharedMidiState::default();
         let mut sound = sound(&state);
-        sound.reset(Some(SAMPLE_RATE));
+        sound.reset();
+        sound.set_sample_rate(SAMPLE_RATE);
         let mut next_value = move || sound.get_mono();
         let start = Instant::now();
         state.on(60, 127);

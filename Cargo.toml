@@ -12,7 +12,7 @@ categories = ["hardware-support", "multimedia::audio"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fundsp = "0.12"
+fundsp = "0.15.0"
 midir = "0.9"
 cpal = "0.15"
 anyhow = "1"

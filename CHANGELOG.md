@@ -1,3 +1,6 @@
+# 0.1.5
+  * Updated to `fundsp 0.15`
+
 # 0.1.4
   * Updated to `cpal 0.15` 
 
