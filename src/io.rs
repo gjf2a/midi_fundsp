@@ -380,12 +380,27 @@ impl<const N: usize> MonoPlayer<N> {
         }
     }
 
+    fn find_next_state(&mut self) -> usize {
+        for i in self.next.iter() {
+            if self.recent_pitches[i.a()].is_none() {
+                return self.claim_state(i);
+            }
+        }
+        self.claim_state(self.next)
+    }
+
+    fn claim_state(&mut self, state: ModNumC<usize,N>) -> usize {
+        let next = state.a();
+        self.next = state + 1;
+        next
+    }
+
     fn on(&mut self, pitch: u8, velocity: u8) {
         self.master_volume.set_value(1.0);
-        self.states[self.next.a()].on(pitch, velocity);
-        self.pitch2state[pitch as usize] = Some(self.next.a());
-        self.recent_pitches[self.next.a()] = Some(pitch);
-        self.next += 1;
+        let selected = self.find_next_state();
+        self.states[selected].on(pitch, velocity);
+        self.pitch2state[pitch as usize] = Some(selected);
+        self.recent_pitches[selected] = Some(pitch);
     }
 
     fn off(&mut self, pitch: u8) {
