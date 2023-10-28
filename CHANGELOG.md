@@ -1,5 +1,5 @@
 # 0.1.7
-  * Promoted `MAX_MIDI_VALUES` to be a public constant.
+  * Promoted `NUM_MIDI_VALUES` to be a public constant.
 
 # 0.1.6
   * Previously, the sound output reclaimed sounds in the order they were activated. It now reuses unused sounds before reclaiming sounds still in use.
