@@ -12,9 +12,7 @@ use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
 use std::sync::{Arc, Mutex};
 
-use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
-
-const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
+use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, NUM_MIDI_VALUES};
 
 #[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
