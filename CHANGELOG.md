@@ -1,3 +1,7 @@
+# 0.2.0
+  * `SynthMsg` objects can give note and velocity information if
+  they correspond to `NOTE_ON` or `NOTE_OFF` MIDI messages.
+
 # 0.1.7
   * Promoted `NUM_MIDI_VALUES` to be a public constant.
 

@@ -53,6 +53,20 @@ impl SynthMsg {
             speaker,
         }
     }
+
+    /// Returns MIDI note and velocity information if pertinent
+    pub fn note_velocity(&self) -> Option<(u8, u8)> {
+        if let MidiMsg::ChannelVoice { channel: _, msg } = self.msg {
+            match msg {
+                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => {
+                    Some((note, velocity))
+                }
+                _ => None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 /// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each message received is

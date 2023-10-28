@@ -1,6 +1,6 @@
 [package]
 name = "midi_fundsp"
-version = "0.1.7"
+version = "0.2.0"
 edition = "2021"
 description = "Enables creation of live MIDI synthesizer software."
 readme = "README.md"
