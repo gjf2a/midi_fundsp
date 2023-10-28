@@ -1,3 +1,6 @@
+# 0.1.6
+  * Previously, the sound output reclaimed sounds in the order they were activated. It now reuses unused sounds before reclaiming sounds still in use.
+
 # 0.1.5
   * Updated to `fundsp 0.15`
 
