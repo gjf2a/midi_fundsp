@@ -8,8 +8,8 @@ use midi_fundsp::{
     sound_builders::ProgramTable,
     sounds::{adsr_pulse, moog_pulse},
 };
-use midi_msg::{ChannelVoiceMsg, MidiMsg};
 use midir::MidiInput;
+use read_input::{shortcut::input, InputBuild};
 
 fn main() -> anyhow::Result<()> {
     let stereo_table = Arc::new(Mutex::new(stereo_table()));
@@ -27,32 +27,27 @@ fn main() -> anyhow::Result<()> {
     println!("Play notes at will.");
     println!("Notes below middle C will be played on the left speaker with a pulse wave.");
     println!("Notes at middle C or above will be played on the right speaker with a pulse wave through a Moog filter.");
-    println!("Loops indefinitely, printing MIDI inputs as they arrive.\n\nUse CTRL-C to exit.");
+    println!("Loops indefinitely, printing MIDI inputs as they arrive.");
 
-    loop {
-        if let Some(mut midi_msg) = midi_msgs.pop() {
-            println!("{:?}", midi_msg.msg);
-            midi_msg.speaker = side_from_pitch(&midi_msg);
-            stereo_msgs.push(midi_msg);
+    std::thread::spawn(move || {
+        loop {
+            if let Some(mut midi_msg) = midi_msgs.pop() {
+                midi_msg.speaker = side_from_pitch(&midi_msg);
+                stereo_msgs.push(midi_msg);
+            }
         }
-    }
+    });
+    
+    input::<String>().msg("Press any key to exit\n").get();
+    Ok(())
 }
 
 fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {
-    if let MidiMsg::ChannelVoice { channel: _, msg } = midi_msg.msg {
-        match msg {
-            ChannelVoiceMsg::NoteOn { note, velocity: _ }
-            | ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                if note < 60 {
-                    return Speaker::Left;
-                } else {
-                    return Speaker::Right;
-                }
-            }
-            _ => {}
-        }
+    if let Some((note, _)) = midi_msg.note_velocity() {
+        if note < 60 {Speaker::Left} else {Speaker::Right}
+    } else {
+        Speaker::Both
     }
-    Speaker::Both
 }
 
 fn stereo_table() -> ProgramTable {

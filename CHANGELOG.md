@@ -1,6 +1,7 @@
 # 0.2.0
-  * `SynthMsg` objects can give note and velocity information if
-  they correspond to `NOTE_ON` or `NOTE_OFF` MIDI messages.
+  * `SynthMsg` objects can give note and velocity information if they correspond to `NOTE_ON` or `NOTE_OFF` MIDI messages.
+  * `note_velocity_demo.rs` is an example that intercepts the MIDI messages and prints the note and velocity values.
+  * `stereo_demo.rs` has been modified to make use of this new feature as well.
 
 # 0.1.7
   * Promoted `NUM_MIDI_VALUES` to be a public constant.
