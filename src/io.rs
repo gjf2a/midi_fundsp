@@ -365,7 +365,11 @@ impl<const N: usize> MonoPlayer<N> {
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
-                    self.on(*note, *velocity);
+                    if *velocity == 0_u8 {
+                        self.off(*note);
+                    } else {
+                        self.on(*note, *velocity);
+                    }
                 }
                 ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                     self.off(*note);
