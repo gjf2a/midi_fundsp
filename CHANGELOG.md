@@ -1,3 +1,6 @@
+# 0.2.1
+  * A `NoteOn` message with a velocity of zero is treated as a `NoteOff` message. Some devices implement `NoteOff` in this way, and this change supports them.
+
 # 0.2.0
   * `SynthMsg` objects can give note and velocity information if they correspond to `NOTE_ON` or `NOTE_OFF` MIDI messages.
   * `note_velocity_demo.rs` is an example that intercepts the MIDI messages and prints the note and velocity values.
