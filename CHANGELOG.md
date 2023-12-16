@@ -1,5 +1,6 @@
 # 0.3.0
-  * Updated to `midi-msg 0.5.0`
+  * Updated to `midi-msg 0.5.0`.
+  * [Disabled `files` feature in `fundsp`](https://github.com/gjf2a/midi_fundsp/pull/3), as this library does not open any files.
   * Changed API for `start_output_thread()`. 
     * Instead of relying on the `AtomicCell` variable `quit` to determine when to stop, it now relies upon receiving a MIDI `SystemReset` message. 
     * That message will be sent by `start_input_thread()` when its `quit` variable is set to `true`. It will reset `quit` to `false` once it has finished running.
