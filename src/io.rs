@@ -2,12 +2,12 @@ use anyhow::{anyhow, bail};
 use bare_metal_modulo::*;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Sample, SizedSample, SampleFormat, Stream, StreamConfig, FromSample,
+    Device, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
 };
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared};
-use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg};
+use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg, SystemRealTimeMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
 use std::sync::{Arc, Mutex};
@@ -43,6 +43,18 @@ impl SynthMsg {
         }
     }
 
+    /// Returns MIDI `System Reset` message.
+    pub fn system_reset(speaker: Speaker) -> Self {
+        Self::system_real_time_msg(SystemRealTimeMsg::SystemReset, speaker)
+    }
+
+    fn system_real_time_msg(msg: SystemRealTimeMsg, speaker: Speaker) -> Self {
+        Self {
+            msg: MidiMsg::SystemRealTime { msg },
+            speaker,
+        }
+    }
+
     /// Returns MIDI `Program Change` message. This selects the synthesizer sound with the given index.
     pub fn program_change(program: u8, speaker: Speaker) -> Self {
         Self {
@@ -58,10 +70,9 @@ impl SynthMsg {
     pub fn note_velocity(&self) -> Option<(u8, u8)> {
         if let MidiMsg::ChannelVoice { channel: _, msg } = self.msg {
             match msg {
-                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => {
-                    Some((note, velocity))
-                }
-                _ => None
+                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity }
+                | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => Some((note, velocity)),
+                _ => None,
             }
         } else {
             None
@@ -72,7 +83,7 @@ impl SynthMsg {
 /// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each message received is
 /// stored in a `SynthMsg` object and placed in the `midi_msgs` queue.
 ///
-/// If `true` is stored in `quit`, the thread exits.
+/// If `true` is stored in `quit`, the thread exits and it sends a MIDI `SystemReset` message.
 /// If `print_incoming_msg` is `true`, each incoming MIDI message will be printed to the console.
 ///
 /// The functions `get_first_midi_device()` and `choose_midi_device()` are examples of how to
@@ -84,6 +95,7 @@ pub fn start_input_thread(
     quit: Arc<AtomicCell<bool>>,
 ) {
     std::thread::spawn(move || {
+        let midi_msgs_copy = midi_msgs.clone();
         let _conn_in = midi_in
             .connect(
                 &in_port,
@@ -99,6 +111,8 @@ pub fn start_input_thread(
             )
             .unwrap();
         while !quit.load() {}
+        midi_msgs_copy.push(SynthMsg::system_reset(Speaker::Both));
+        quit.store(false);
     });
 }
 
@@ -111,15 +125,14 @@ pub fn start_input_thread(
 ///
 /// Setting `N = 1` yields a monophonic synthesizer. Setting `N = 10` should suffice for most purposes.
 ///
-/// If `true` is stored in `quit`, the thread exits.
+/// If a `SystemReset` MIDI message is received, the thread exits.
 pub fn start_output_thread<const N: usize>(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
     program_table: Arc<Mutex<ProgramTable>>,
-    quit: Arc<AtomicCell<bool>>,
 ) {
     std::thread::spawn(move || {
         let mut player = StereoPlayer::<N>::new(program_table);
-        player.run_output(midi_msgs, quit).unwrap();
+        player.run_output(midi_msgs).unwrap();
     });
 }
 
@@ -158,31 +171,29 @@ impl<const N: usize> StereoPlayer<N> {
         )
     }
 
-    fn run_output(
-        &mut self,
-        midi_msgs: Arc<SegQueue<SynthMsg>>,
-        quit: Arc<AtomicCell<bool>>,
-    ) -> anyhow::Result<()> {
+    fn run_output(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .ok_or(anyhow!("failed to find a default output device"))?;
         let config = device.default_output_config()?;
         match config.sample_format() {
-            SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into(), quit),
-            SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into(), quit),
-            SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into(), quit),
-            sample_format => panic!("Unsupported sample format '{sample_format}'")
+            SampleFormat::F32 => self.run_synth::<f32>(midi_msgs, device, config.into()),
+            SampleFormat::I16 => self.run_synth::<i16>(midi_msgs, device, config.into()),
+            SampleFormat::U16 => self.run_synth::<u16>(midi_msgs, device, config.into()),
+            sample_format => panic!("Unsupported sample format '{sample_format}'"),
         }
     }
 
-    fn decode(&mut self, speaker: Speaker, msg: &MidiMsg, synth_changed: &mut bool) {
+    fn decode(&mut self, speaker: Speaker, msg: &MidiMsg) -> Option<RelayedMessage> {
         match speaker {
-            Speaker::Left | Speaker::Right => self.sounds[speaker.i()].decode(msg, synth_changed),
+            Speaker::Left | Speaker::Right => self.sounds[speaker.i()].decode(msg),
             Speaker::Both => {
+                let mut result = None;
                 for sound in self.sounds.iter_mut() {
-                    sound.decode(msg, synth_changed);
+                    result = result.or(sound.decode(msg));
                 }
+                result
             }
         }
     }
@@ -192,13 +203,15 @@ impl<const N: usize> StereoPlayer<N> {
         midi_msgs: Arc<SegQueue<SynthMsg>>,
         device: Device,
         config: StreamConfig,
-        quit: Arc<AtomicCell<bool>>,
     ) -> anyhow::Result<()> {
         Self::warm_up(midi_msgs.clone());
-        while !quit.load() {
+        let mut done = false;
+        while !done {
             let stream = self.get_stream::<T>(&config, &device)?;
             stream.play()?;
-            self.handle_messages(midi_msgs.clone(), quit.clone());
+            if self.handle_messages(midi_msgs.clone()) == RelayedMessage::SystemReset {
+                done = true;
+            }
         }
         Ok(())
     }
@@ -226,11 +239,12 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn handle_messages(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>, quit: Arc<AtomicCell<bool>>) {
-        let mut synth_changed = false;
-        while !synth_changed && !quit.load() {
+    fn handle_messages(&mut self, midi_msgs: Arc<SegQueue<SynthMsg>>) -> RelayedMessage {
+        loop {
             if let Some(msg) = midi_msgs.pop() {
-                self.decode(msg.speaker, &msg.msg, &mut synth_changed);
+                if let Some(relayed) = self.decode(msg.speaker, &msg.msg) {
+                    return relayed;
+                }
             }
         }
     }
@@ -253,7 +267,8 @@ impl<const N: usize> StereoPlayer<N> {
                 move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
                     write_data(data, channels, &mut next_value)
                 },
-                err_fn, None
+                err_fn,
+                None,
             )
             .or_else(|err| bail!("{err:?}"))
     }
@@ -321,6 +336,12 @@ fn write_data<T: Sample + FromSample<f64>>(
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum RelayedMessage {
+    SynthChange,
+    SystemReset,
+}
+
 #[derive(Clone)]
 struct MonoPlayer<const N: usize> {
     states: [SharedMidiState; N],
@@ -361,7 +382,7 @@ impl<const N: usize> MonoPlayer<N> {
         )
     }
 
-    fn decode(&mut self, msg: &MidiMsg, synth_changed: &mut bool) {
+    fn decode(&mut self, msg: &MidiMsg) -> Option<RelayedMessage> {
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
@@ -383,7 +404,7 @@ impl<const N: usize> MonoPlayer<N> {
                         program_table[*program as usize].1.clone()
                     };
                     self.change_synth(new_synth);
-                    *synth_changed = true;
+                    return Some(RelayedMessage::SynthChange);
                 }
                 _ => {}
             },
@@ -392,8 +413,13 @@ impl<const N: usize> MonoPlayer<N> {
                 ChannelModeMsg::AllSoundOff => self.all_sounds_off(),
                 _ => {}
             },
+            MidiMsg::SystemRealTime { msg } => match msg {
+                SystemRealTimeMsg::SystemReset => return Some(RelayedMessage::SystemReset),
+                _ => {}
+            },
             _ => {}
         }
+        None
     }
 
     fn find_next_state(&mut self) -> usize {
@@ -405,7 +431,7 @@ impl<const N: usize> MonoPlayer<N> {
         self.claim_state(self.next)
     }
 
-    fn claim_state(&mut self, state: ModNumC<usize,N>) -> usize {
+    fn claim_state(&mut self, state: ModNumC<usize, N>) -> usize {
         let next = state.a();
         self.next = state + 1;
         next

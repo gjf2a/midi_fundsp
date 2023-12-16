@@ -22,34 +22,36 @@ fn main() -> anyhow::Result<()> {
     start_input_thread(midi_msgs.clone(), midi_in, in_port, quit.clone());
     let stereo_msgs = Arc::new(SegQueue::new());
     stereo_msgs.push(SynthMsg::program_change(1, Speaker::Left));
-    start_output_thread::<10>(stereo_msgs.clone(), stereo_table, quit);
+    start_output_thread::<10>(stereo_msgs.clone(), stereo_table);
 
     println!("Play notes at will.");
     println!("Notes below middle C will be played on the left speaker with a pulse wave.");
     println!("Notes at middle C or above will be played on the right speaker with a pulse wave through a Moog filter.");
     println!("Loops indefinitely, printing MIDI inputs as they arrive.");
 
-    std::thread::spawn(move || {
-        loop {
-            if let Some(mut midi_msg) = midi_msgs.pop() {
-                midi_msg.speaker = side_from_pitch(&midi_msg);
-                stereo_msgs.push(midi_msg);
-            }
+    std::thread::spawn(move || loop {
+        if let Some(mut midi_msg) = midi_msgs.pop() {
+            midi_msg.speaker = side_from_pitch(&midi_msg);
+            stereo_msgs.push(midi_msg);
         }
     });
-    
+
     input::<String>().msg("Press any key to exit\n").get();
     Ok(())
 }
 
 fn side_from_pitch(midi_msg: &SynthMsg) -> Speaker {
     if let Some((note, _)) = midi_msg.note_velocity() {
-        if note < 60 {Speaker::Left} else {Speaker::Right}
+        if note < 60 {
+            Speaker::Left
+        } else {
+            Speaker::Right
+        }
     } else {
         Speaker::Both
     }
 }
 
 fn stereo_table() -> ProgramTable {
-    program_table![("Moog Pulse", moog_pulse), ("Pulse", adsr_pulse)]
+    program_table![("Pulse", adsr_pulse), ("Moog Pulse", moog_pulse)]
 }

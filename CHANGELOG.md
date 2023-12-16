@@ -1,3 +1,10 @@
+# 0.3.0
+  * Updated to `midi-msg 0.5.0`
+  * Changed API for `start_output_thread()`. 
+    * Instead of relying on the `AtomicCell` variable `quit` to determine when to stop, it now relies upon receiving a MIDI `SystemReset` message. 
+    * That message will be sent by `start_input_thread()` when its `quit` variable is set to `true`. It will reset `quit` to `false` once it has finished running.
+    * This change fixes a [bug](https://github.com/gjf2a/midi_fundsp/issues/2) which was caused by the output thread in [`choice_demo.rs`](https://github.com/gjf2a/midi_fundsp/blob/master/examples/choice_demo.rs) failing to exit, a consequence of an unpredictable sequence of when the `reset` variable would be changed back to `false`.
+
 # 0.2.1
   * A `NoteOn` message with a velocity of zero is treated as a `NoteOff` message. Some devices implement `NoteOff` in this way, and this change supports them.
 

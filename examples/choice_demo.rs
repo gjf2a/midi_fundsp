@@ -19,9 +19,10 @@ fn main() -> anyhow::Result<()> {
         let mut midi_in = MidiInput::new("midir reading input")?;
         let in_port = choose_midi_device(&mut midi_in)?;
         let midi_msgs = Arc::new(SegQueue::new());
+        while reset.load() {}
         start_input_thread(midi_msgs.clone(), midi_in, in_port, reset.clone());
         let program_table = Arc::new(Mutex::new(options()));
-        start_output_thread::<10>(midi_msgs.clone(), program_table.clone(), reset.clone());
+        start_output_thread::<10>(midi_msgs.clone(), program_table.clone());
         run_chooser(midi_msgs, program_table.clone(), reset.clone(), &mut quit);
     }
     Ok(())
@@ -34,7 +35,6 @@ fn run_chooser(
     quit: &mut bool,
 ) {
     let main_menu = vec!["Pick New Synthesizer Sound", "Pick New MIDI Device", "Quit"];
-    reset.store(false);
     while !*quit && !reset.load() {
         println!("Play notes at will. When ready for a change, select one of the following:");
         match console_choice_from("Choice", &main_menu, |s| *s) {

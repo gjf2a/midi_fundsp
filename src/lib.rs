@@ -37,7 +37,7 @@ use std::time::{Duration, Instant};
 /// MIDI values for pitch and velocity range from 0 to 127.
 pub const MAX_MIDI_VALUE: u8 = 127;
 
-/// Total quantity of distinct MIDI values. 
+/// Total quantity of distinct MIDI values.
 pub const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 /// Control value in response to `Note On` event.
