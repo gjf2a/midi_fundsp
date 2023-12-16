@@ -12,9 +12,7 @@ use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
 use std::sync::{Arc, Mutex};
 
-use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, MAX_MIDI_VALUE};
-
-const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
+use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, NUM_MIDI_VALUES};
 
 #[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
@@ -53,6 +51,20 @@ impl SynthMsg {
                 msg: ChannelVoiceMsg::ProgramChange { program },
             },
             speaker,
+        }
+    }
+
+    /// Returns MIDI note and velocity information if pertinent
+    pub fn note_velocity(&self) -> Option<(u8, u8)> {
+        if let MidiMsg::ChannelVoice { channel: _, msg } = self.msg {
+            match msg {
+                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => {
+                    Some((note, velocity))
+                }
+                _ => None
+            }
+        } else {
+            None
         }
     }
 }
@@ -353,7 +365,11 @@ impl<const N: usize> MonoPlayer<N> {
         match msg {
             MidiMsg::ChannelVoice { channel: _, msg } => match msg {
                 ChannelVoiceMsg::NoteOn { note, velocity } => {
-                    self.on(*note, *velocity);
+                    if *velocity == 0_u8 {
+                        self.off(*note);
+                    } else {
+                        self.on(*note, *velocity);
+                    }
                 }
                 ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                     self.off(*note);
@@ -380,12 +396,27 @@ impl<const N: usize> MonoPlayer<N> {
         }
     }
 
+    fn find_next_state(&mut self) -> usize {
+        for i in self.next.iter() {
+            if self.recent_pitches[i.a()].is_none() {
+                return self.claim_state(i);
+            }
+        }
+        self.claim_state(self.next)
+    }
+
+    fn claim_state(&mut self, state: ModNumC<usize,N>) -> usize {
+        let next = state.a();
+        self.next = state + 1;
+        next
+    }
+
     fn on(&mut self, pitch: u8, velocity: u8) {
         self.master_volume.set_value(1.0);
-        self.states[self.next.a()].on(pitch, velocity);
-        self.pitch2state[pitch as usize] = Some(self.next.a());
-        self.recent_pitches[self.next.a()] = Some(pitch);
-        self.next += 1;
+        let selected = self.find_next_state();
+        self.states[selected].on(pitch, velocity);
+        self.pitch2state[pitch as usize] = Some(selected);
+        self.recent_pitches[selected] = Some(pitch);
     }
 
     fn off(&mut self, pitch: u8) {

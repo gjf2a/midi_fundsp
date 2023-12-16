@@ -1,0 +1,213 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Execute 'basic_demo'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=basic_demo",
+                    "--package=midi_fundsp",
+                    "--release"
+                ],
+                "filter": {
+                    "name": "basic_demo",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Execute 'choice_demo'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=choice_demo",
+                    "--package=midi_fundsp",
+                    "--release"
+                ],
+                "filter": {
+                    "name": "choice_demo",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Execute 'stereo_demo'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=stereo_demo",
+                    "--package=midi_fundsp",
+                    "--release"
+                ],
+                "filter": {
+                    "name": "stereo_demo",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'basic_demo'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=basic_demo",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "basic_demo",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'midi_fundsp'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=midi_fundsp",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "midi_fundsp",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'many_constant_notes'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=many_constant_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "many_constant_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'many_constant_notes'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=many_constant_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "many_constant_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'midi_stereo_notes'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=midi_stereo_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "midi_stereo_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'midi_stereo_notes'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=midi_stereo_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "midi_stereo_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'midi_fundsp_notes'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=midi_fundsp_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "midi_fundsp_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'midi_fundsp_notes'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=midi_fundsp_notes",
+                    "--package=midi_fundsp"
+                ],
+                "filter": {
+                    "name": "midi_fundsp_notes",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
