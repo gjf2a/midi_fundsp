@@ -1,3 +1,6 @@
+# 0.3.1
+  * Updated `README.md` to be consistent with the new version of `start_output_thread()`.
+
 # 0.3.0
   * Updated to `midi-msg 0.5.0`.
   * [Disabled `files` feature in `fundsp`](https://github.com/gjf2a/midi_fundsp/pull/3), as this library does not open any files.
