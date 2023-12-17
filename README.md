@@ -32,10 +32,8 @@ fn main() -> anyhow::Result<()> {
     let in_port = get_first_midi_device(&mut midi_in)?;
     let midi_msgs = Arc::new(SegQueue::new());
     let quit = Arc::new(AtomicCell::new(false));
-    
     start_input_thread(midi_msgs.clone(), midi_in, in_port, quit.clone());
-    start_output_thread::<10>(midi_msgs, Arc::new(Mutex::new(options())), quit);
-    
+    start_output_thread::<10>(midi_msgs, Arc::new(Mutex::new(options())));
     input::<String>().msg("Press any key to exit\n").get();
     Ok(())
 }
