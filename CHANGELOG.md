@@ -1,3 +1,6 @@
+# 0.3.2
+  * Updated to `fundsp 0.16.0`
+
 # 0.3.1
   * Updated `README.md` to be consistent with the new version of `start_output_thread()`.
 
