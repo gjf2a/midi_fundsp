@@ -1,5 +1,8 @@
+# 0.3.3
+  * Updated to `midi-msg 0.6.1`.
+
 # 0.3.2
-  * Updated to `fundsp 0.16.0` and `midi-msg 0.6.1`.
+  * Updated to `fundsp 0.16.0`.
 
 # 0.3.1
   * Updated `README.md` to be consistent with the new version of `start_output_thread()`.
