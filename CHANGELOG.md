@@ -1,3 +1,6 @@
+# 0.3.5
+  * Updated to `fundsp 0.17.1`.
+
 # 0.3.4
   * Updated to `fundsp 0.17.0`.
 
