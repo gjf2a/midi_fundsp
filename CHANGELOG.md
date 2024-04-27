@@ -1,3 +1,6 @@
+# 0.3.6
+  * Updated to `midir 0.10` and `midi-msg 0.7`
+
 # 0.3.5
   * Updated to `fundsp 0.17.1`.
 
