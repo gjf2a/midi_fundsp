@@ -29,7 +29,7 @@ pub mod io;
 pub mod sound_builders;
 pub mod sounds;
 
-use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit64, FrameMul, Net64, Shared, Var};
+use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit, FrameMul, Net, Shared, Var};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -41,13 +41,13 @@ pub const MAX_MIDI_VALUE: u8 = 127;
 pub const NUM_MIDI_VALUES: usize = MAX_MIDI_VALUE as usize + 1;
 
 /// Control value in response to `Note On` event.
-pub const CONTROL_ON: f64 = 1.0;
+pub const CONTROL_ON: f32 = 1.0;
 
 /// Control value in response to `Note Off` event.
-pub const CONTROL_OFF: f64 = -1.0;
+pub const CONTROL_OFF: f32 = -1.0;
 
 /// `SynthFunc` objects translate `SharedMidiState` values into [fundsp](https://crates.io/crates/fundsp) audio graphs.
-pub type SynthFunc = Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>;
+pub type SynthFunc = Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit> + Send + Sync>;
 
 #[derive(Clone)]
 /// `SharedMidiState` objects represent as [fundsp `Shared` atomic variables](https://docs.rs/fundsp/0.10.0/fundsp/audionode/struct.Shared.html)
@@ -56,10 +56,10 @@ pub type SynthFunc = Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send
 /// * `Note Off`
 /// * `Pitch Bend`
 pub struct SharedMidiState {
-    pitch: Shared<f64>,
-    velocity: Shared<f64>,
-    control: Shared<f64>,
-    pitch_bend: Shared<f64>,
+    pitch: Shared,
+    velocity: Shared,
+    control: Shared,
+    pitch_bend: Shared,
 }
 
 impl Default for SharedMidiState {
@@ -86,12 +86,12 @@ impl Debug for SharedMidiState {
 
 impl SharedMidiState {
     /// Returns the most recent `Note On` pitch, modified by the most recent `Pitch Bend` event.
-    pub fn bent_pitch(&self) -> Net64 {
-        Net64::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
+    pub fn bent_pitch(&self) -> Net {
+        Net::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
     }
 
     /// Returns `CONTROL_ON` if `Note On` is the most recent event for this pitch, and `CONTROL_OFF` otherwise.
-    pub fn control_var(&self) -> An<Var<f64>> {
+    pub fn control_var(&self) -> An<Var> {
         var(&self.control)
     }
 
@@ -101,10 +101,10 @@ impl SharedMidiState {
     /// output from the `adjuster`. The `adjuster` should use `control_var()` to determine whether the most recent
     /// event is `Note On` or `Note Off`, and adjust the volume accordingly, whether it is a sudden cutoff or
     /// a gradual release.
-    pub fn volume(&self, adjuster: Box<dyn AudioUnit64>) -> Net64 {
-        Net64::bin_op(
-            Net64::wrap(Box::new(var(&self.velocity))),
-            Net64::wrap(adjuster),
+    pub fn volume(&self, adjuster: Box<dyn AudioUnit>) -> Net {
+        Net::bin_op(
+            Net::wrap(Box::new(var(&self.velocity))),
+            Net::wrap(adjuster),
             FrameMul::new(),
         )
     }
@@ -113,11 +113,11 @@ impl SharedMidiState {
     /// produce the final sound.
     pub fn assemble_unpitched_sound(
         &self,
-        synth: Box<dyn AudioUnit64>,
-        adjuster: Box<dyn AudioUnit64>,
-    ) -> Box<dyn AudioUnit64> {
+        synth: Box<dyn AudioUnit>,
+        adjuster: Box<dyn AudioUnit>,
+    ) -> Box<dyn AudioUnit> {
         self.assemble_pitched_sound(
-            Box::new(Net64::pipe_op(self.bent_pitch(), Net64::wrap(synth))),
+            Box::new(Net::pipe_op(self.bent_pitch(), Net::wrap(synth))),
             adjuster,
         )
     }
@@ -126,11 +126,11 @@ impl SharedMidiState {
     /// It then multiplies by `volume(adjuster)` to produce the final sound.
     pub fn assemble_pitched_sound(
         &self,
-        pitched_sound: Box<dyn AudioUnit64>,
-        adjuster: Box<dyn AudioUnit64>,
-    ) -> Box<dyn AudioUnit64> {
-        Box::new(Net64::bin_op(
-            Net64::wrap(pitched_sound),
+        pitched_sound: Box<dyn AudioUnit>,
+        adjuster: Box<dyn AudioUnit>,
+    ) -> Box<dyn AudioUnit> {
+        Box::new(Net::bin_op(
+            Net::wrap(pitched_sound),
             self.volume(adjuster),
             FrameMul::new(),
         ))
@@ -138,9 +138,9 @@ impl SharedMidiState {
 
     /// Encodes a MIDI `Note On` event.
     pub fn on(&self, pitch: u8, velocity: u8) {
-        self.pitch.set_value(midi_hz(pitch as f64));
+        self.pitch.set_value(midi_hz(pitch as f32));
         self.velocity
-            .set_value(velocity as f64 / MAX_MIDI_VALUE as f64);
+            .set_value(velocity as f32 / MAX_MIDI_VALUE as f32);
         self.control.set_value(CONTROL_ON);
     }
 
@@ -158,28 +158,28 @@ impl SharedMidiState {
 }
 
 /// Converts MIDI pitch-bend message to frequency multiplier over +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
-pub fn pitch_bend_factor(bend: u16) -> f64 {
-    2.0_f64.powf(semitone_from(bend) / 12.0)
+pub fn pitch_bend_factor(bend: u16) -> f32 {
+    2.0_f32.powf(semitone_from(bend) / 12.0)
 }
 
 /// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
-pub fn semitone_from(bend: u16) -> f64 {
-    (bend as f64 - 8192.0) / 8192.0
+pub fn semitone_from(bend: u16) -> f32 {
+    (bend as f32 - 8192.0) / 8192.0
 }
 
 #[derive(Debug)]
 /// When designing sounds, it can be useful to understand their typical output levels. `SoundTestResult` objects
 /// track the minimum, maximum, and mean output levels.
 pub struct SoundTestResult {
-    total: f64,
+    total: f32,
     count: usize,
-    min: f64,
-    max: f64,
+    min: f32,
+    max: f32,
 }
 
 impl SoundTestResult {
     /// Add a new value to this `SoundTestResult`.
-    pub fn add_value(&mut self, value: f64) {
+    pub fn add_value(&mut self, value: f32) {
         self.count += 1;
         self.total += value;
         if value < self.min {
@@ -194,7 +194,7 @@ impl SoundTestResult {
     pub fn report(&self) {
         println!(
             "{} ({}..{})",
-            self.total / self.count as f64,
+            self.total / self.count as f32,
             self.min,
             self.max
         );
@@ -206,8 +206,8 @@ impl Default for SoundTestResult {
         Self {
             total: Default::default(),
             count: Default::default(),
-            min: f64::MAX,
-            max: f64::MIN,
+            min: f32::MAX,
+            max: f32::MIN,
         }
     }
 }
@@ -224,7 +224,7 @@ impl SoundTestResult {
     /// Tests the given `sound` by playing a middle C note for `DURATION` seconds at `SAMPLE_RATE`.
     /// Returns a `SoundTestResult` that summarizes the resuts.
     pub fn test(
-        sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit64> + Send + Sync>,
+        sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit> + Send + Sync>,
     ) -> Self {
         let mut result = Self::default();
         let state = SharedMidiState::default();

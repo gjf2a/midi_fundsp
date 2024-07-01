@@ -6,7 +6,7 @@ use cpal::{
 };
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
-use fundsp::hacker::{shared, var, AudioUnit64, FrameAdd, FrameMul, Net64, Shared};
+use fundsp::hacker::{shared, var, AudioUnit, FrameAdd, FrameMul, Net, Shared};
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg, SystemRealTimeMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};
@@ -164,8 +164,8 @@ impl<const N: usize> StereoPlayer<N> {
         Self { sounds }
     }
 
-    fn sound(&self) -> Net64 {
-        Net64::stack_op(
+    fn sound(&self) -> Net {
+        Net::stack_op(
             self.sounds[Speaker::Left.i()].sound(),
             self.sounds[Speaker::Right.i()].sound(),
         )
@@ -198,7 +198,7 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn run_synth<T: Sample + SizedSample + FromSample<f64>>(
+    fn run_synth<T: Sample + SizedSample + FromSample<f32>>(
         &mut self,
         midi_msgs: Arc<SegQueue<SynthMsg>>,
         device: Device,
@@ -249,7 +249,7 @@ impl<const N: usize> StereoPlayer<N> {
         }
     }
 
-    fn get_stream<T: Sample + SizedSample + FromSample<f64>>(
+    fn get_stream<T: Sample + SizedSample + FromSample<f32>>(
         &self,
         config: &StreamConfig,
         device: &Device,
@@ -320,15 +320,15 @@ pub fn choose_midi_device(midi_in: &mut MidiInput) -> anyhow::Result<MidiInputPo
     }
 }
 
-fn write_data<T: Sample + FromSample<f64>>(
+fn write_data<T: Sample + FromSample<f32>>(
     output: &mut [T],
     channels: usize,
-    next_sample: &mut dyn FnMut() -> (f64, f64),
+    next_sample: &mut dyn FnMut() -> (f32, f32),
 ) {
     for frame in output.chunks_mut(channels) {
         let sample = next_sample();
-        let left: T = Sample::from_sample::<f64>(sample.0);
-        let right: T = Sample::from_sample::<f64>(sample.1);
+        let left: T = Sample::from_sample::<f32>(sample.0);
+        let right: T = Sample::from_sample::<f32>(sample.1);
 
         for (channel, sample) in frame.iter_mut().enumerate() {
             *sample = if channel & 1 == 0 { left } else { right };
@@ -349,7 +349,7 @@ struct MonoPlayer<const N: usize> {
     pitch2state: [Option<usize>; NUM_MIDI_VALUES],
     recent_pitches: [Option<u8>; N],
     synth_func: SynthFunc,
-    master_volume: Shared<f64>,
+    master_volume: Shared,
     program_table: Arc<Mutex<ProgramTable>>,
 }
 
@@ -370,14 +370,14 @@ impl<const N: usize> MonoPlayer<N> {
         }
     }
 
-    fn sound(&self) -> Net64 {
-        let mut sound = Net64::wrap(self.sound_at(0));
+    fn sound(&self) -> Net {
+        let mut sound = Net::wrap(self.sound_at(0));
         for i in 1..N {
-            sound = Net64::bin_op(sound, Net64::wrap(self.sound_at(i)), FrameAdd::new());
+            sound = Net::bin_op(sound, Net::wrap(self.sound_at(i)), FrameAdd::new());
         }
-        Net64::bin_op(
+        Net::bin_op(
             sound,
-            Net64::wrap(Box::new(var(&self.master_volume))),
+            Net::wrap(Box::new(var(&self.master_volume))),
             FrameMul::new(),
         )
     }
@@ -465,7 +465,7 @@ impl<const N: usize> MonoPlayer<N> {
         }
     }
 
-    fn sound_at(&self, i: usize) -> Box<dyn AudioUnit64> {
+    fn sound_at(&self, i: usize) -> Box<dyn AudioUnit> {
         (self.synth_func)(&self.states[i])
     }
 

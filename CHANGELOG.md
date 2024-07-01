@@ -1,3 +1,8 @@
+# 0.4.0
+  * Updated to `fundsp 0.18.1`
+  * Replaced most `f64` values with `f32` values, to reflect changes to `fundsp`.
+    * This is not a backwards-compatible update, but it should be easy to fix.
+
 # 0.3.6
   * Updated to `midir 0.10` and `midi-msg 0.7`
 
