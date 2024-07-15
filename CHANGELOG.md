@@ -1,3 +1,6 @@
+# 0.4.1
+  * Updated to `fundsp 0.18.2`
+
 # 0.4.0
   * Updated to `fundsp 0.18.1`
   * Replaced most `f64` values with `f32` values, to reflect changes to `fundsp`.
