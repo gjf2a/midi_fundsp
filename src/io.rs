@@ -94,6 +94,17 @@ pub fn start_input_thread(
     in_port: MidiInputPort,
     quit: Arc<AtomicCell<bool>>,
 ) {
+    start_generic_input_thread(|msg| SynthMsg {msg, speaker: Speaker::Both}, SynthMsg::system_reset(Speaker::Both), midi_msgs, midi_in, in_port, quit)
+}
+
+pub fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg) -> M>(
+    encoder: F,
+    reset: M,
+    midi_msgs: Arc<SegQueue<M>>,
+    midi_in: MidiInput,
+    in_port: MidiInputPort,
+    quit: Arc<AtomicCell<bool>>,
+) {
     std::thread::spawn(move || {
         let midi_msgs_copy = midi_msgs.clone();
         let _conn_in = midi_in
@@ -102,16 +113,13 @@ pub fn start_input_thread(
                 "midir-read-input",
                 move |_stamp, message, _| {
                     let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-                    midi_msgs.push(SynthMsg {
-                        msg,
-                        speaker: Speaker::Both,
-                    });
+                    midi_msgs.push(encoder(msg));
                 },
                 (),
             )
             .unwrap();
         while !quit.load() {}
-        midi_msgs_copy.push(SynthMsg::system_reset(Speaker::Both));
+        midi_msgs_copy.push(reset);
         quit.store(false);
     });
 }
