@@ -41,7 +41,10 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn msg_with_speaker(msg: MidiMsg) -> SynthMsg {
-    let mut result = SynthMsg {msg, speaker: Speaker::Both};
+    let mut result = SynthMsg {
+        msg,
+        speaker: Speaker::Both,
+    };
     if let Some((note, _)) = result.note_velocity() {
         result.speaker = if note < 60 {
             Speaker::Left
