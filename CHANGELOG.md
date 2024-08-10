@@ -1,3 +1,6 @@
+# 0.5.1
+  * Added documentation for `start_midi_input_thread()`
+
 # 0.5.0
   * Added `start_midi_input_thread()`, enabling users to set up an input thread that enqueues `MidiMsg` objects rather than `SynthMsg` objects. The `stereo_demo` example was updated to demonstrate its use.
 

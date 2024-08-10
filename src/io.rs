@@ -107,6 +107,14 @@ pub fn start_input_thread(
     )
 }
 
+/// Starts a thread that monitors MIDI input events from the source specified by `in_port`. Each `MidiMsg` object
+/// received is placed in the `midi_msgs` queue.
+///
+/// If `true` is stored in `quit`, the thread exits and it sends a MIDI `SystemReset` message.
+/// If `print_incoming_msg` is `true`, each incoming MIDI message will be printed to the console.
+///
+/// The functions `get_first_midi_device()` and `choose_midi_device()` are examples of how to
+/// select a value for `in_port`.
 pub fn start_midi_input_thread(
     midi_msgs: Arc<SegQueue<MidiMsg>>,
     midi_in: MidiInput,
