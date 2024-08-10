@@ -223,9 +223,7 @@ const SLEEP_TIME: f64 = 1.0 / SAMPLE_RATE;
 impl SoundTestResult {
     /// Tests the given `sound` by playing a middle C note for `DURATION` seconds at `SAMPLE_RATE`.
     /// Returns a `SoundTestResult` that summarizes the resuts.
-    pub fn test(
-        sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit> + Send + Sync>,
-    ) -> Self {
+    pub fn test(sound: Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit> + Send + Sync>) -> Self {
         let mut result = Self::default();
         let state = SharedMidiState::default();
         let mut sound = sound(&state);

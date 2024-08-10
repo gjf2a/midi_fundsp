@@ -1,3 +1,6 @@
+# 0.5.0
+  * Added `start_midi_input_thread()`, enabling users to set up an input thread that enqueues `MidiMsg` objects rather than `SynthMsg` objects. The `stereo_demo` example was updated to demonstrate its use.
+
 # 0.4.1
   * Updated to `fundsp 0.18.2`
 

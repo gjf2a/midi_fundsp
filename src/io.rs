@@ -94,7 +94,17 @@ pub fn start_input_thread(
     in_port: MidiInputPort,
     quit: Arc<AtomicCell<bool>>,
 ) {
-    start_generic_input_thread(|msg| SynthMsg {msg, speaker: Speaker::Both}, SynthMsg::system_reset(Speaker::Both), midi_msgs, midi_in, in_port, quit)
+    start_generic_input_thread(
+        |msg| SynthMsg {
+            msg,
+            speaker: Speaker::Both,
+        },
+        SynthMsg::system_reset(Speaker::Both),
+        midi_msgs,
+        midi_in,
+        in_port,
+        quit,
+    )
 }
 
 pub fn start_midi_input_thread(
@@ -103,7 +113,16 @@ pub fn start_midi_input_thread(
     in_port: MidiInputPort,
     quit: Arc<AtomicCell<bool>>,
 ) {
-    start_generic_input_thread(|msg| msg, MidiMsg::SystemRealTime { msg: SystemRealTimeMsg::SystemReset }, midi_msgs, midi_in, in_port, quit)
+    start_generic_input_thread(
+        |msg| msg,
+        MidiMsg::SystemRealTime {
+            msg: SystemRealTimeMsg::SystemReset,
+        },
+        midi_msgs,
+        midi_in,
+        in_port,
+        quit,
+    )
 }
 
 fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg) -> M>(
