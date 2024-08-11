@@ -1,3 +1,8 @@
+# 0.5.2
+  * Added `start_midi_output_thread()`, enabling users to rely solely on `MidiMsg` objects
+  rather than using `SynthMsg` objects. The `midi_only_demo` example demonstrates using
+  `start_midi_input_thread()` and `start_midi_output_thread()` together.
+
 # 0.5.1
   * Added documentation for `start_midi_input_thread()`
 

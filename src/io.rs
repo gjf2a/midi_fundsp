@@ -180,6 +180,36 @@ pub fn start_output_thread<const N: usize>(
     });
 }
 
+/// Plays sounds according to `MidiMsg` objects received in the `midi_msgs` queue. Synthesizer sounds may be selected with
+/// MIDI `Program Change` messages that reference sounds stored in `program_table`.
+///
+/// The constant value `N` is the number of distinct sounds it can emit. Each MIDI `Note On` message uses one distinct
+/// sound. When a number of `Note On` messages greater than `N` has been received, the sound used by the oldest `Note On`
+/// message is reused for the new `Note On` message.
+///
+/// Setting `N = 1` yields a monophonic synthesizer. Setting `N = 10` should suffice for most purposes.
+///
+/// If a `SystemReset` MIDI message is received, the thread exits.
+pub fn start_midi_output_thread<const N: usize>(
+    midi_msgs: Arc<SegQueue<MidiMsg>>,
+    program_table: Arc<Mutex<ProgramTable>>,
+) {
+    let relay_out = Arc::new(SegQueue::new());
+    let relay_in = relay_out.clone();
+    std::thread::spawn(move || {
+        loop {
+            if let Some(msg) = midi_msgs.pop() {
+                relay_out.push(SynthMsg {msg, speaker: Speaker::Both})
+            }
+        }
+    });
+
+    std::thread::spawn(move || {
+        let mut player = StereoPlayer::<N>::new(program_table);
+        player.run_output(relay_in).unwrap();
+    });
+}
+
 #[derive(Copy, Clone, Debug)]
 /// Represents whether a sound should go to the left, right, or both speakers.
 pub enum Speaker {
