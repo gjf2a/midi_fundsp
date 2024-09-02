@@ -159,15 +159,10 @@ fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg)
 fn input_callback<M: Send + 'static, F: Send + 'static + Fn(MidiMsg) -> M>(
     encoder: F,
     midi_msgs: Arc<SegQueue<M>>,
-    quit: Arc<AtomicCell<bool>>,
+    _quit: Arc<AtomicCell<bool>>,
 ) -> impl Fn(u64, &[u8], &mut ()) {
     move |_stamp, message, _| {
         let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-        if let MidiMsg::SystemRealTime { msg } = msg {
-            if msg == SystemRealTimeMsg::SystemReset {
-                quit.store(true);
-            }
-        }
         midi_msgs.push(encoder(msg));
     }
 }
