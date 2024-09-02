@@ -25,12 +25,20 @@ fn main() -> anyhow::Result<()> {
         let program_table = Arc::new(Mutex::new(options()));
         start_output_thread::<10>(outgoing_msgs.clone(), program_table.clone());
         run_midi_show_thread(incoming_msgs, outgoing_msgs.clone());
-        run_chooser(outgoing_msgs, program_table.clone(), reset.clone(), &mut quit);
+        run_chooser(
+            outgoing_msgs,
+            program_table.clone(),
+            reset.clone(),
+            &mut quit,
+        );
     }
     Ok(())
 }
 
-fn run_midi_show_thread(incoming_msgs: Arc<SegQueue<SynthMsg>>, outgoing_msgs: Arc<SegQueue<SynthMsg>>) {
+fn run_midi_show_thread(
+    incoming_msgs: Arc<SegQueue<SynthMsg>>,
+    outgoing_msgs: Arc<SegQueue<SynthMsg>>,
+) {
     std::thread::spawn(move || loop {
         if let Some(msg) = incoming_msgs.pop() {
             println!("{msg:?}");

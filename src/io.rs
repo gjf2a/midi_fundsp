@@ -142,22 +142,34 @@ fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg)
     quit: Arc<AtomicCell<bool>>,
 ) {
     std::thread::spawn(move || {
-        let midi_msgs_copy = midi_msgs.clone();
         let _conn_in = midi_in
             .connect(
                 &in_port,
                 "midir-read-input",
-                move |_stamp, message, _| {
-                    let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
-                    midi_msgs.push(encoder(msg));
-                },
+                input_callback(encoder, midi_msgs.clone(), quit.clone()),
                 (),
             )
             .unwrap();
         while !quit.load() {}
-        midi_msgs_copy.push(reset);
+        midi_msgs.push(reset);
         quit.store(false);
     });
+}
+
+fn input_callback<M: Send + 'static, F: Send + 'static + Fn(MidiMsg) -> M>(
+    encoder: F,
+    midi_msgs: Arc<SegQueue<M>>,
+    quit: Arc<AtomicCell<bool>>,
+) -> impl Fn(u64, &[u8], &mut ()) {
+    move |_stamp, message, _| {
+        let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
+        if let MidiMsg::SystemRealTime { msg } = msg {
+            if msg == SystemRealTimeMsg::SystemReset {
+                quit.store(true);
+            }
+        }
+        midi_msgs.push(encoder(msg));
+    }
 }
 
 /// Plays sounds according to instructions received in the `midi_msgs` queue. Synthesizer sounds may be selected with
@@ -196,11 +208,12 @@ pub fn start_midi_output_thread<const N: usize>(
 ) {
     let relay_out = Arc::new(SegQueue::new());
     let relay_in = relay_out.clone();
-    std::thread::spawn(move || {
-        loop {
-            if let Some(msg) = midi_msgs.pop() {
-                relay_out.push(SynthMsg {msg, speaker: Speaker::Both})
-            }
+    std::thread::spawn(move || loop {
+        if let Some(msg) = midi_msgs.pop() {
+            relay_out.push(SynthMsg {
+                msg,
+                speaker: Speaker::Both,
+            })
         }
     });
 
