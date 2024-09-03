@@ -146,7 +146,7 @@ fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg)
             .connect(
                 &in_port,
                 "midir-read-input",
-                input_callback(encoder, midi_msgs.clone(), quit.clone()),
+                input_callback(encoder, midi_msgs.clone()),
                 (),
             )
             .unwrap();
@@ -159,7 +159,6 @@ fn start_generic_input_thread<M: Send + 'static, F: Send + 'static + Fn(MidiMsg)
 fn input_callback<M: Send + 'static, F: Send + 'static + Fn(MidiMsg) -> M>(
     encoder: F,
     midi_msgs: Arc<SegQueue<M>>,
-    _quit: Arc<AtomicCell<bool>>,
 ) -> impl Fn(u64, &[u8], &mut ()) {
     move |_stamp, message, _| {
         let (msg, _len) = MidiMsg::from_midi(&message).unwrap();
