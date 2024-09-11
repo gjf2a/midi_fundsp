@@ -1,3 +1,6 @@
+# 0.5.3
+  * Updated to fundsp 0.19.1
+
 # 0.5.2
   * Added `start_midi_output_thread()`, enabling users to rely solely on `MidiMsg` objects
   rather than using `SynthMsg` objects. The `midi_only_demo` example demonstrates using
