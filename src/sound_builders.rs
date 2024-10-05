@@ -48,8 +48,8 @@ impl Adsr {
     /// Stacks pitch with an ADSR and pipes them into `timed_sound`. Useful for any sound needing two
     /// inputs, where the first is a pitch and the second is time-varying information.
     pub fn timed_sound(&self, timed_sound: Box<dyn AudioUnit>, state: &SharedMidiState) -> Net {
-        Net::pipe_op(
-            Net::stack_op(state.bent_pitch(), self.net64ed(state)),
+        Net::pipe(
+            Net::stack(state.bent_pitch(), self.net64ed(state)),
             Net::wrap(timed_sound),
         )
     }
@@ -57,10 +57,10 @@ impl Adsr {
     /// Stacks `source` with an ADSR that is piped into an exponential interpolator.
     /// Thes two stacked inputs are then piped into a Moog filter.
     pub fn timed_moog(&self, source: Box<dyn AudioUnit>, state: &SharedMidiState) -> Net {
-        Net::pipe_op(
-            Net::stack_op(
+        Net::pipe(
+            Net::stack(
                 Net::wrap(source),
-                Net::pipe_op(
+                Net::pipe(
                     self.net64ed(state),
                     Net::wrap(Box::new(envelope2(move |_, n| xerp(1100.0, 11000.0, n)))),
                 ),

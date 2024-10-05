@@ -246,7 +246,7 @@ impl<const N: usize> StereoPlayer<N> {
     }
 
     fn sound(&self) -> Net {
-        Net::stack_op(
+        Net::stack(
             self.sounds[Speaker::Left.i()].sound(),
             self.sounds[Speaker::Right.i()].sound(),
         )
@@ -454,9 +454,9 @@ impl<const N: usize> MonoPlayer<N> {
     fn sound(&self) -> Net {
         let mut sound = Net::wrap(self.sound_at(0));
         for i in 1..N {
-            sound = Net::bin_op(sound, Net::wrap(self.sound_at(i)), FrameAdd::new());
+            sound = Net::binary(sound, Net::wrap(self.sound_at(i)), FrameAdd::new());
         }
-        Net::bin_op(
+        Net::binary(
             sound,
             Net::wrap(Box::new(var(&self.master_volume))),
             FrameMul::new(),

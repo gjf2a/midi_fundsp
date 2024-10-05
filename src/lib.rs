@@ -102,7 +102,7 @@ impl SharedMidiState {
     /// event is `Note On` or `Note Off`, and adjust the volume accordingly, whether it is a sudden cutoff or
     /// a gradual release.
     pub fn volume(&self, adjuster: Box<dyn AudioUnit>) -> Net {
-        Net::bin_op(
+        Net::binary(
             Net::wrap(Box::new(var(&self.velocity))),
             Net::wrap(adjuster),
             FrameMul::new(),
@@ -117,7 +117,7 @@ impl SharedMidiState {
         adjuster: Box<dyn AudioUnit>,
     ) -> Box<dyn AudioUnit> {
         self.assemble_pitched_sound(
-            Box::new(Net::pipe_op(self.bent_pitch(), Net::wrap(synth))),
+            Box::new(Net::pipe(self.bent_pitch(), Net::wrap(synth))),
             adjuster,
         )
     }
@@ -129,7 +129,7 @@ impl SharedMidiState {
         pitched_sound: Box<dyn AudioUnit>,
         adjuster: Box<dyn AudioUnit>,
     ) -> Box<dyn AudioUnit> {
-        Box::new(Net::bin_op(
+        Box::new(Net::binary(
             Net::wrap(pitched_sound),
             self.volume(adjuster),
             FrameMul::new(),

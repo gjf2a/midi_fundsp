@@ -1,3 +1,8 @@
+# 0.6.0
+  * Updated to fundsp 0.20.0.
+  * Since 0.20.0 has a significantly backward-incompatible API, all references
+    to `bin_op()` are now `binary()`, `stack_op()` are now `stack()`, and `pipe_op()` are now `pipe()`.
+
 # 0.5.3
   * Updated to fundsp 0.19.1
 
