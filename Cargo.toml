@@ -1,6 +1,6 @@
 [package]
 name = "midi_fundsp"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 description = "Enables creation of live MIDI synthesizer software."
 readme = "README.md"
@@ -16,7 +16,7 @@ fundsp = { version = "0.20.0", default-features = false}
 midir = "0.10"
 cpal = "0.15"
 anyhow = "1"
-midi-msg = "0.7"
+midi-msg = "0.8"
 bare_metal_modulo = "1"
 crossbeam-queue = "0.3"
 crossbeam-utils = "0.8"

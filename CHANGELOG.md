@@ -1,3 +1,6 @@
+# 0.6.1
+  * Updated to midi-msg 0.8.0.
+
 # 0.6.0
   * Updated to fundsp 0.20.0.
   * Since 0.20.0 has a significantly backward-incompatible API, all references
