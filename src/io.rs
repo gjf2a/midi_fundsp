@@ -205,9 +205,9 @@ pub fn start_midi_output_thread<const N: usize>(
 
 /// Plays sounds according to `MidiMsg` objects received in the `midi_msgs` queue. Synthesizer sounds may be selected with
 /// MIDI `Program Change` messages that reference sounds stored in `program_table`.
-/// 
+///
 /// The function `midi_to_hz()` converts MIDI pitches (0-127) to frequencies. To represent
-/// an alternative tuning system, pass in an appropriate function. 
+/// an alternative tuning system, pass in an appropriate function.
 ///
 /// The constant value `N` is the number of distinct sounds it can emit. Each MIDI `Note On` message uses one distinct
 /// sound. When a number of `Note On` messages greater than `N` has been received, the sound used by the oldest `Note On`
@@ -226,7 +226,10 @@ pub fn start_midi_output_thread_alt_tuning<const N: usize>(
     inner_start_output_thread(midi_msgs, player);
 }
 
-fn inner_start_output_thread<const N: usize>(midi_msgs: Arc<SegQueue<MidiMsg>>, mut player: StereoPlayer<N>) {
+fn inner_start_output_thread<const N: usize>(
+    midi_msgs: Arc<SegQueue<MidiMsg>>,
+    mut player: StereoPlayer<N>,
+) {
     let relay_out = Arc::new(SegQueue::new());
     let relay_in = relay_out.clone();
     std::thread::spawn(move || loop {

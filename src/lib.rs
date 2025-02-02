@@ -71,7 +71,7 @@ impl Default for SharedMidiState {
             velocity: Default::default(),
             control: shared(CONTROL_OFF),
             pitch_bend: shared(1.0),
-            midi_to_hz: midi_hz
+            midi_to_hz: midi_hz,
         }
     }
 }
