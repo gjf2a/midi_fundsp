@@ -28,6 +28,7 @@
 pub mod io;
 pub mod sound_builders;
 pub mod sounds;
+pub mod tunings;
 
 use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit, FrameMul, Net, Shared, Var};
 use std::fmt::Debug;
@@ -50,7 +51,7 @@ pub const CONTROL_OFF: f32 = -1.0;
 pub type SynthFunc = Arc<dyn Fn(&SharedMidiState) -> Box<dyn AudioUnit> + Send + Sync>;
 
 #[derive(Clone)]
-/// `SharedMidiState` objects represent as [fundsp `Shared` atomic variables](https://docs.rs/fundsp/0.10.0/fundsp/audionode/struct.Shared.html)
+/// `SharedMidiState` objects represent as [fundsp `Shared` atomic variables](https://docs.rs/fundsp/latest/fundsp/shared/struct.Shared.html)
 /// the following MIDI events:
 /// * `Note On`
 /// * `Note Off`
@@ -60,6 +61,7 @@ pub struct SharedMidiState {
     velocity: Shared,
     control: Shared,
     pitch_bend: Shared,
+    midi_to_hz: fn(f32) -> f32,
 }
 
 impl Default for SharedMidiState {
@@ -69,6 +71,7 @@ impl Default for SharedMidiState {
             velocity: Default::default(),
             control: shared(CONTROL_OFF),
             pitch_bend: shared(1.0),
+            midi_to_hz: midi_hz
         }
     }
 }
@@ -85,6 +88,11 @@ impl Debug for SharedMidiState {
 }
 
 impl SharedMidiState {
+    /// Changes how MIDI notes are converted to pitches. Defaults to equal temperament.
+    pub fn set_midi_to_hz(&mut self, midi_to_hz: fn(f32) -> f32) {
+        self.midi_to_hz = midi_to_hz;
+    }
+
     /// Returns the most recent `Note On` pitch, modified by the most recent `Pitch Bend` event.
     pub fn bent_pitch(&self) -> Net {
         Net::wrap(Box::new(var(&self.pitch_bend) * var(&self.pitch)))
@@ -138,7 +146,7 @@ impl SharedMidiState {
 
     /// Encodes a MIDI `Note On` event.
     pub fn on(&self, pitch: u8, velocity: u8) {
-        self.pitch.set_value(midi_hz(pitch as f32));
+        self.pitch.set_value((self.midi_to_hz)(pitch as f32));
         self.velocity
             .set_value(velocity as f32 / MAX_MIDI_VALUE as f32);
         self.control.set_value(CONTROL_ON);

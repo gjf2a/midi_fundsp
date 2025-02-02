@@ -200,6 +200,33 @@ pub fn start_midi_output_thread<const N: usize>(
     midi_msgs: Arc<SegQueue<MidiMsg>>,
     program_table: Arc<Mutex<ProgramTable>>,
 ) {
+    inner_start_output_thread(midi_msgs, StereoPlayer::<N>::new(program_table));
+}
+
+/// Plays sounds according to `MidiMsg` objects received in the `midi_msgs` queue. Synthesizer sounds may be selected with
+/// MIDI `Program Change` messages that reference sounds stored in `program_table`.
+/// 
+/// The function `midi_to_hz()` converts MIDI pitches (0-127) to frequencies. To represent
+/// an alternative tuning system, pass in an appropriate function. 
+///
+/// The constant value `N` is the number of distinct sounds it can emit. Each MIDI `Note On` message uses one distinct
+/// sound. When a number of `Note On` messages greater than `N` has been received, the sound used by the oldest `Note On`
+/// message is reused for the new `Note On` message.
+///
+/// Setting `N = 1` yields a monophonic synthesizer. Setting `N = 10` should suffice for most purposes.
+///
+/// If a `SystemReset` MIDI message is received, the thread exits.
+pub fn start_midi_output_thread_alt_tuning<const N: usize>(
+    midi_msgs: Arc<SegQueue<MidiMsg>>,
+    program_table: Arc<Mutex<ProgramTable>>,
+    midi_to_hz: fn(f32) -> f32,
+) {
+    let mut player = StereoPlayer::<N>::new(program_table);
+    player.set_midi_to_hz(midi_to_hz);
+    inner_start_output_thread(midi_msgs, player);
+}
+
+fn inner_start_output_thread<const N: usize>(midi_msgs: Arc<SegQueue<MidiMsg>>, mut player: StereoPlayer<N>) {
     let relay_out = Arc::new(SegQueue::new());
     let relay_in = relay_out.clone();
     std::thread::spawn(move || loop {
@@ -212,7 +239,6 @@ pub fn start_midi_output_thread<const N: usize>(
     });
 
     std::thread::spawn(move || {
-        let mut player = StereoPlayer::<N>::new(program_table);
         player.run_output(relay_in).unwrap();
     });
 }
@@ -243,6 +269,12 @@ impl<const N: usize> StereoPlayer<N> {
             MonoPlayer::<N>::new(program_table),
         ];
         Self { sounds }
+    }
+
+    fn set_midi_to_hz(&mut self, midi_to_hz: fn(f32) -> f32) {
+        for i in 0..self.sounds.len() {
+            self.sounds[i].set_midi_to_hz(midi_to_hz);
+        }
     }
 
     fn sound(&self) -> Net {
@@ -448,6 +480,12 @@ impl<const N: usize> MonoPlayer<N> {
             synth_func,
             master_volume: shared(1.0),
             program_table,
+        }
+    }
+
+    fn set_midi_to_hz(&mut self, midi_to_hz: fn(f32) -> f32) {
+        for i in 0..self.states.len() {
+            self.states[i].set_midi_to_hz(midi_to_hz);
         }
     }
 
