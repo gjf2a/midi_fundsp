@@ -1,9 +1,7 @@
-use fundsp::math::midi_hz;
-
 pub fn just_intonation<const M: u8, const P: u16>(midi_pitch: f32) -> f32 {
     let midi_pitch = midi_pitch as u8;
 
-    todo!("Write the rest of this")
+    todo!("Write the rest of this: {midi_pitch}")
 }
 
 const WELL_C_MINUS_1: f32 = 8.20354352009375;

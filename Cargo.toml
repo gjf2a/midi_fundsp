@@ -1,7 +1,7 @@
 [package]
 name = "midi_fundsp"
-version = "0.6.1"
-edition = "2021"
+version = "0.6.2"
+edition = "2024"
 description = "Enables creation of live MIDI synthesizer software."
 readme = "README.md"
 homepage = "https://github.com/gjf2a/midi_fundsp"
@@ -13,13 +13,13 @@ categories = ["hardware-support", "multimedia::audio"]
 
 [dependencies]
 fundsp = { version = "0.20.0", default-features = false}
-midir = "0.10"
-cpal = "0.15"
-anyhow = "1"
-midi-msg = "0.8"
-bare_metal_modulo = "1"
-crossbeam-queue = "0.3"
-crossbeam-utils = "0.8"
-read_input = "0.8"
-float_eq = "1"
-num-rational = "0.4"
+midir = "0.10.2"
+cpal = "0.16.0"
+anyhow = "1.0.99"
+midi-msg = "0.8.0"
+bare_metal_modulo = "1.2.5"
+crossbeam-queue = "0.3.12"
+crossbeam-utils = "0.8.21"
+read_input = "0.8.6"
+float_eq = "1.0.1"
+num-rational = "0.4.2"
