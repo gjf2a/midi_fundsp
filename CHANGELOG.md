@@ -1,3 +1,8 @@
+# 0.6.2
+  * Updated to cpal 0.16.0
+  * Specified full 3-digit dependencies for all.
+  * Updated to Rust 2024 edition.
+
 # 0.6.1
   * Updated to midi-msg 0.8.0.
 
