@@ -14,7 +14,6 @@ use fundsp::prelude::{
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {
     program_table![
-        ("Acoustic Grand Piano", acoustic_grand_piano),
         ("Simple Triangle", simple_triangle),
         ("Triangle", adsr_triangle),
         ("Organ", adsr_organ),
@@ -29,7 +28,8 @@ pub fn options() -> ProgramTable {
         ("Moog Saw", moog_saw),
         ("Moog Soft Saw", moog_soft_saw),
         ("Moog Square", moog_square),
-        ("Moog Pulse", moog_pulse)
+        ("Moog Pulse", moog_pulse),
+        ("Acoustic Grand Piano", acoustic_grand_piano)
     ]
 }
 
@@ -46,7 +46,8 @@ pub fn favorites() -> ProgramTable {
         ("Moog Organ", moog_organ),
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square),
-        ("Moog Pulse", moog_pulse)
+        ("Moog Pulse", moog_pulse),
+        ("Acoustic Grand Piano", acoustic_grand_piano)
     ]
 }
 

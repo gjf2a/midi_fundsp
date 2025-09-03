@@ -1,3 +1,6 @@
+# 0.6.3
+  * Added Acoustic Grand Piano (thanks @xenacool!)
+
 # 0.6.2
   * Updated to cpal 0.16.0
   * Specified full 3-digit dependencies for all.
