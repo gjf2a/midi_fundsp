@@ -1,3 +1,6 @@
+# 0.6.4
+  * Updated to anyhow 1.0.100 and midi-msg 0.8.1
+
 # 0.6.3
   * Added Acoustic Grand Piano (thanks @xenacool!)
 
