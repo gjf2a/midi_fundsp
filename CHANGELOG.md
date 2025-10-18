@@ -1,3 +1,6 @@
+# 0.6.5
+  * Added Xylophone (thanks @xenacool!)
+
 # 0.6.4
   * Updated to anyhow 1.0.100 and midi-msg 0.8.1
 
