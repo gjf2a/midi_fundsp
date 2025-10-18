@@ -6,10 +6,8 @@ use fundsp::hacker::{
     dsf_saw, dsf_square, organ, pulse, saw, sine, soft_saw, square, triangle, AudioUnit,
 };
 use fundsp::hacker32::highpass_hz;
-use fundsp::prelude::{
-    brown, db_amp, dcblock, highshelf_hz, limiter, lowpass_hz,
-    mul, pass, resonator_hz,
-};
+use fundsp::prelude::{brown, db_amp, dcblock, highshelf_hz, join,
+                      limiter, lowpass_hz, mul, pass, resonator_hz, U2};
 
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {
@@ -29,7 +27,8 @@ pub fn options() -> ProgramTable {
         ("Moog Soft Saw", moog_soft_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse),
-        ("Acoustic Grand Piano", acoustic_grand_piano)
+        ("Acoustic Grand Piano", acoustic_grand_piano),
+        ("Xylophone", xylophone)
     ]
 }
 
@@ -243,4 +242,51 @@ pub fn acoustic_grand_piano(state: &SharedMidiState) -> Box<dyn AudioUnit> {
     );
 
     state.assemble_unpitched_sound(synth, piano_adsr.boxed(state))
+}
+
+
+pub fn xylophone(state: &SharedMidiState) -> Box<dyn AudioUnit> {
+    let xylophone_adsr = Adsr {
+        attack: 0.01,
+        decay: 0.3,
+        sustain: 0.0,
+        release: 0.15,
+    };
+
+    let a1 = 0.70;
+    let a2 = 0.28;
+    let a3 = 0.14;
+    let a4 = 0.07;
+    let a5 = 0.03;
+
+    let bar_modes =
+        (mul(1.0)    >> sine() * a1)
+            & (mul(3.998) >> sine() * a2)
+            & (mul(10.0)  >> sine() * a3)
+            & (mul(20.0)  >> sine() * a4)
+            & (mul(27.0)  >> sine() * a5)
+            >> highshelf_hz(2500.0, db_amp(1.5), 0.2)
+            >> lowpass_hz(6500.0, 0.7)
+            >> dcblock::<f64>();
+
+    let tone =
+        bar_modes
+            >> (pass() ^ (highpass_hz(3000.0, 0.7) * 0.18))
+            >> join::<U2>();
+
+    let body = (pass() * 0.7)
+        & (0.18 * resonator_hz(800.0, 85.0))
+        & (0.14 * resonator_hz(1600.0, 95.0))
+        & (0.10 * resonator_hz(2400.0, 110.0))
+        & (0.07 * resonator_hz(3200.0, 130.0));
+
+    let synth = Box::new(
+        tone
+            >> body
+            >> highpass_hz(30.0, 0.7)
+            >> dcblock::<f64>()
+            >> limiter(0.002, 0.12)
+    );
+
+    state.assemble_unpitched_sound(synth, xylophone_adsr.boxed(state))
 }
