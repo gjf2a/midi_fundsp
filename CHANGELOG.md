@@ -1,3 +1,6 @@
+# 0.6.6
+  * Updated to midir 0.10.3
+
 # 0.6.5
   * Added Xylophone (thanks @xenacool!)
 
