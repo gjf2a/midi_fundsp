@@ -1,3 +1,6 @@
+# 0.6.7
+  * Updated to cpal 0.17.0
+
 # 0.6.6
   * Updated to midir 0.10.3
 

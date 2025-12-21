@@ -1,6 +1,6 @@
 [package]
 name = "midi_fundsp"
-version = "0.6.6"
+version = "0.6.7"
 edition = "2024"
 description = "Enables creation of live MIDI synthesizer software."
 readme = "README.md"
@@ -14,7 +14,7 @@ categories = ["hardware-support", "multimedia::audio"]
 [dependencies]
 fundsp = { version = "0.20.0", default-features = false}
 midir = "0.10.3"
-cpal = "0.16.0"
+cpal = "0.17.0"
 anyhow = "1.0.100"
 midi-msg = "0.8.1"
 bare_metal_modulo = "1.2.5"

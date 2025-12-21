@@ -370,7 +370,7 @@ impl<const N: usize> StereoPlayer<N> {
         config: &StreamConfig,
         device: &Device,
     ) -> anyhow::Result<Stream> {
-        let sample_rate = config.sample_rate.0 as f64;
+        let sample_rate = config.sample_rate as f64;
         let mut sound = self.sound();
         sound.reset();
         sound.set_sample_rate(sample_rate);
