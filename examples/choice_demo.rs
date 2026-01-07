@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
         start_input_thread(midi_msgs.clone(), midi_in, in_port, reset.clone());
         let program_table = Arc::new(Mutex::new(options()));
         start_output_thread::<10>(midi_msgs.clone(), program_table.clone());
-        run_chooser(midi_msgs, program_table.clone(), &mut quit);
+        run_chooser(midi_msgs, program_table.clone(), reset.clone(), &mut quit);
     }
     Ok(())
 }
@@ -31,10 +31,11 @@ fn main() -> anyhow::Result<()> {
 fn run_chooser(
     midi_msgs: Arc<SegQueue<SynthMsg>>,
     program_table: Arc<Mutex<ProgramTable>>,
+    reset: Arc<AtomicCell<bool>>,
     quit: &mut bool,
 ) {
     let main_menu = vec!["Pick New Synthesizer Sound", "Pick New MIDI Device", "Quit"];
-    while !*quit {
+    while !*quit && !reset.load() {
         println!("Play notes at will. When ready for a change, select one of the following:");
         match console_choice_from("Choice", &main_menu, |s| *s) {
             0 => {
@@ -44,10 +45,7 @@ fn run_chooser(
                 };
                 midi_msgs.push(SynthMsg::program_change(program as u8, Speaker::Both));
             }
-            1 => {
-                midi_msgs.push(SynthMsg::system_reset(Speaker::Both));
-                return;
-            }
+            1 => reset.store(true),
             2 => *quit = true,
             _ => panic!("This should never happen."),
         }
