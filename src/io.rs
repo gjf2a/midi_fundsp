@@ -6,7 +6,7 @@ use cpal::{
 };
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
-use fundsp::hacker::{shared, var, AudioUnit, FrameAdd, FrameMul, Net, Shared};
+use fundsp::{net::Net, prelude::{AudioUnit, FrameAdd, FrameMul}, prelude64::{shared, var}, shared::Shared};
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg, SystemRealTimeMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{shortcut::input, InputBuild};

@@ -30,10 +30,15 @@ pub mod sound_builders;
 pub mod sounds;
 pub mod tunings;
 
-use fundsp::hacker::{midi_hz, shared, var, An, AudioUnit, FrameMul, Net, Shared, Var};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use fundsp::math::midi_hz;
+use fundsp::net::Net;
+use fundsp::prelude::{An, AudioUnit, FrameMul};
+use fundsp::prelude64::{shared, var};
+use fundsp::shared::{Shared, Var};
 
 /// MIDI values for pitch and velocity range from 0 to 127.
 pub const MAX_MIDI_VALUE: u8 = 127;

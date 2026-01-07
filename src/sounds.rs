@@ -2,12 +2,8 @@ use std::sync::Arc;
 
 use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
 use crate::{program_table, SharedMidiState};
-use fundsp::hacker::{
-    dsf_saw, dsf_square, organ, pulse, saw, sine, soft_saw, square, triangle, AudioUnit,
-};
-use fundsp::hacker32::highpass_hz;
-use fundsp::prelude::{brown, db_amp, dcblock, highshelf_hz, join,
-                      limiter, lowpass_hz, mul, pass, resonator_hz, U2};
+use fundsp::prelude::{AudioUnit, U2, brown, db_amp, dcblock, highshelf_hz, join, limiter, lowpass_hz, mul, pass, resonator_hz};
+use fundsp::prelude64::{dsf_saw, dsf_square, highpass_hz, organ, pulse, saw, sine, soft_saw, square, triangle};
 
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {

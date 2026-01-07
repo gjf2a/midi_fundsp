@@ -1,3 +1,6 @@
+# 0.6.8
+  * Updated to fundsp 0.22.0
+
 # 0.6.7
   * Updated to cpal 0.17.0
 
