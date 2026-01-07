@@ -1,6 +1,6 @@
 [package]
 name = "midi_fundsp"
-version = "0.6.8"
+version = "0.6.9"
 edition = "2024"
 description = "Enables creation of live MIDI synthesizer software."
 readme = "README.md"
@@ -12,7 +12,7 @@ categories = ["hardware-support", "multimedia::audio"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fundsp = "0.22.0"
+fundsp = {version = "0.23.0", features = ["std", "fft"]}
 midir = "0.10.3"
 cpal = "0.17.0"
 anyhow = "1.0.100"
