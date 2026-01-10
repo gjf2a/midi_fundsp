@@ -1,6 +1,6 @@
 # 0.6.10
   * updated to cpal 0.17.1
-  * Added Clavichord
+  * Added two clavichord sounds and a guitar-inspired sound.
 
 # 0.6.9
   * Updated to fundsp 0.23.0
