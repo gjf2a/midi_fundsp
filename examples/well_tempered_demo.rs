@@ -8,7 +8,7 @@ use midi_fundsp::{
     tunings::well_temperament,
 };
 use midir::MidiInput;
-use read_input::{shortcut::input, InputBuild};
+use read_input::{InputBuild, shortcut::input};
 
 fn main() -> anyhow::Result<()> {
     let mut midi_in = MidiInput::new("midir reading input")?;

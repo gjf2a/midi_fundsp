@@ -4,8 +4,8 @@ use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{
-        choose_midi_device, console_choice_from, start_input_thread, start_output_thread, Speaker,
-        SynthMsg,
+        Speaker, SynthMsg, choose_midi_device, console_choice_from, start_input_thread,
+        start_output_thread,
     },
     sound_builders::ProgramTable,
     sounds::options,
@@ -39,10 +39,12 @@ fn run_midi_show_thread(
     incoming_msgs: Arc<SegQueue<SynthMsg>>,
     outgoing_msgs: Arc<SegQueue<SynthMsg>>,
 ) {
-    std::thread::spawn(move || loop {
-        if let Some(msg) = incoming_msgs.pop() {
-            println!("{msg:?}");
-            outgoing_msgs.push(msg);
+    std::thread::spawn(move || {
+        loop {
+            if let Some(msg) = incoming_msgs.pop() {
+                println!("{msg:?}");
+                outgoing_msgs.push(msg);
+            }
         }
     });
 }

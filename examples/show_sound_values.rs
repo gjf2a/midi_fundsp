@@ -1,4 +1,4 @@
-use midi_fundsp::{sounds::options, SoundTestResult};
+use midi_fundsp::{SoundTestResult, sounds::options};
 
 fn main() {
     for (name, func) in options() {

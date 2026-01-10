@@ -1,3 +1,7 @@
+# 0.6.10
+  * updated to cpal 0.17.1
+  * Added Clavichord
+
 # 0.6.9
   * Updated to fundsp 0.23.0
   * As the current `fundsp` depends on `std` in `resample.rs`, and since [this pull request](https://github.com/gjf2a/midi_fundsp/pull/3) was concerned with disabling the `files` feature, I updated `Cargo.toml` to enable `std` and `fft`.

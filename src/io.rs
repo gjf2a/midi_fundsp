@@ -1,18 +1,23 @@
 use anyhow::{anyhow, bail};
 use bare_metal_modulo::*;
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
-use fundsp::{net::Net, prelude::{AudioUnit, FrameAdd, FrameMul}, prelude64::{shared, var}, shared::Shared};
+use fundsp::{
+    net::Net,
+    prelude::{AudioUnit, FrameAdd, FrameMul},
+    prelude64::{shared, var},
+    shared::Shared,
+};
 use midi_msg::{Channel, ChannelModeMsg, ChannelVoiceMsg, MidiMsg, SystemRealTimeMsg};
 use midir::{Ignore, MidiInput, MidiInputPort};
-use read_input::{shortcut::input, InputBuild};
+use read_input::{InputBuild, shortcut::input};
 use std::sync::{Arc, Mutex};
 
-use crate::{sound_builders::ProgramTable, SharedMidiState, SynthFunc, NUM_MIDI_VALUES};
+use crate::{NUM_MIDI_VALUES, SharedMidiState, SynthFunc, sound_builders::ProgramTable};
 
 #[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
@@ -232,12 +237,14 @@ fn inner_start_output_thread<const N: usize>(
 ) {
     let relay_out = Arc::new(SegQueue::new());
     let relay_in = relay_out.clone();
-    std::thread::spawn(move || loop {
-        if let Some(msg) = midi_msgs.pop() {
-            relay_out.push(SynthMsg {
-                msg,
-                speaker: Speaker::Both,
-            })
+    std::thread::spawn(move || {
+        loop {
+            if let Some(msg) = midi_msgs.pop() {
+                relay_out.push(SynthMsg {
+                    msg,
+                    speaker: Speaker::Both,
+                })
+            }
         }
     });
 

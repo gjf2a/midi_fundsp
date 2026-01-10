@@ -4,8 +4,8 @@ use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
     io::{
-        choose_midi_device, console_choice_from, start_input_thread, start_output_thread, Speaker,
-        SynthMsg,
+        Speaker, SynthMsg, choose_midi_device, console_choice_from, start_input_thread,
+        start_output_thread,
     },
     sound_builders::ProgramTable,
     sounds::options,

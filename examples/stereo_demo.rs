@@ -3,14 +3,14 @@ use std::sync::{Arc, Mutex};
 use crossbeam_queue::SegQueue;
 use crossbeam_utils::atomic::AtomicCell;
 use midi_fundsp::{
-    io::{get_first_midi_device, start_midi_input_thread, start_output_thread, Speaker, SynthMsg},
+    io::{Speaker, SynthMsg, get_first_midi_device, start_midi_input_thread, start_output_thread},
     program_table,
     sound_builders::ProgramTable,
     sounds::{adsr_pulse, moog_pulse},
 };
 use midi_msg::MidiMsg;
 use midir::MidiInput;
-use read_input::{shortcut::input, InputBuild};
+use read_input::{InputBuild, shortcut::input};
 
 fn main() -> anyhow::Result<()> {
     let stereo_table = Arc::new(Mutex::new(stereo_table()));
@@ -26,13 +26,17 @@ fn main() -> anyhow::Result<()> {
     start_output_thread::<10>(stereo_msgs.clone(), stereo_table);
 
     println!("Play notes at will.");
-    println!("Notes below middle C will be played on the left speaker with a pulse wave through a Moog filter.");
+    println!(
+        "Notes below middle C will be played on the left speaker with a pulse wave through a Moog filter."
+    );
     println!("Notes at middle C or above will be played on the right speaker with a pulse wave.");
     println!("Loops indefinitely, printing MIDI inputs as they arrive.");
 
-    std::thread::spawn(move || loop {
-        if let Some(msg) = midi_msgs.pop() {
-            stereo_msgs.push(msg_with_speaker(msg));
+    std::thread::spawn(move || {
+        loop {
+            if let Some(msg) = midi_msgs.pop() {
+                stereo_msgs.push(msg_with_speaker(msg));
+            }
         }
     });
 

@@ -1,4 +1,9 @@
-use fundsp::{math::{clamp01, xerp}, net::Net, prelude::AudioUnit, prelude64::{adsr_live, envelope2, moog_q}};
+use fundsp::{
+    math::{clamp01, xerp},
+    net::Net,
+    prelude::AudioUnit,
+    prelude64::{adsr_live, envelope2, moog_q},
+};
 
 use crate::{SharedMidiState, SynthFunc};
 

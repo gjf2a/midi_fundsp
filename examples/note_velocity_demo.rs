@@ -7,7 +7,7 @@ use midi_fundsp::{
     sounds::options,
 };
 use midir::MidiInput;
-use read_input::{shortcut::input, InputBuild};
+use read_input::{InputBuild, shortcut::input};
 
 fn main() -> anyhow::Result<()> {
     let reset = Arc::new(AtomicCell::new(false));
@@ -19,12 +19,14 @@ fn main() -> anyhow::Result<()> {
     start_input_thread(inputs.clone(), midi_in, in_port, reset.clone());
     let program_table = Arc::new(Mutex::new(options()));
     start_output_thread::<10>(outputs.clone(), program_table.clone());
-    std::thread::spawn(move || loop {
-        if let Some(msg) = inputs.pop() {
-            if let Some((note, velocity)) = msg.note_velocity() {
-                println!("note: {note} velocity: {velocity}");
+    std::thread::spawn(move || {
+        loop {
+            if let Some(msg) = inputs.pop() {
+                if let Some((note, velocity)) = msg.note_velocity() {
+                    println!("note: {note} velocity: {velocity}");
+                }
+                outputs.push(msg);
             }
-            outputs.push(msg);
         }
     });
     input::<String>().msg("Press any key to exit\n").get();

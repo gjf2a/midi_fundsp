@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
-use crate::sound_builders::{simple_sound, Adsr, ProgramTable};
-use crate::{program_table, SharedMidiState};
-use fundsp::prelude::{AudioUnit, U2, brown, db_amp, dcblock, highshelf_hz, join, limiter, lowpass_hz, mul, pass, resonator_hz};
-use fundsp::prelude64::{dsf_saw, dsf_square, highpass_hz, organ, pulse, saw, sine, soft_saw, square, triangle};
+use crate::sound_builders::{Adsr, ProgramTable, simple_sound};
+use crate::{SharedMidiState, program_table};
+use fundsp::prelude::{
+    AudioUnit, U2, brown, db_amp, dcblock, highshelf_hz, join, limiter, lowpass_hz, mul, pass,
+    resonator_hz,
+};
+use fundsp::prelude64::{
+    dsf_saw, dsf_square, highpass_hz, organ, pulse, saw, sine, soft_saw, square, triangle,
+};
 
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
 pub fn options() -> ProgramTable {
@@ -24,7 +29,9 @@ pub fn options() -> ProgramTable {
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse),
         ("Acoustic Grand Piano", acoustic_grand_piano),
-        ("Xylophone", xylophone)
+        ("Xylophone", xylophone),
+        ("Clavichord", clavichord_sharp),
+        ("Guitarish?", clavichord_soft)
     ]
 }
 
@@ -42,7 +49,8 @@ pub fn favorites() -> ProgramTable {
         ("Moog Saw", moog_saw),
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse),
-        ("Acoustic Grand Piano", acoustic_grand_piano)
+        ("Acoustic Grand Piano", acoustic_grand_piano),
+        ("Xylophone", xylophone)
     ]
 }
 
@@ -76,31 +84,6 @@ pub const ADSR2: Adsr = Adsr {
     sustain: 0.4,
     release: 0.6,
 };
-
-/*
-// The pluck() function is weird and I will need some help with it.
-//
-pub fn adsr_pluck(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    let pitch = state.bent_pitch();
-    let volume = state.volume(ADSR1.boxed(state));
-    let excitation = shared(1.0);
-
-    Box::new(Net64::pipe_op(
-        Net64::stack_op(
-            Net64::wrap(Box::new(var(&excitation))),
-            pitch),
-        Net64::wrap(Box::new(envelope3(|_,excitation, frequency| pluck(frequency, 0.5, 0.5))))))
-}
-*/
-
-/*
-// Another noble attempt.
-
-pub fn adsr_pluck(state: &SharedMidiState) -> Box<dyn AudioUnit64> {
-    let pitch = state.pitch_shared();
-    state.assemble_sound(Box::new(var_fn(pitch, |p| zero() >> pluck(p, 0.8, 0.8))), adjuster)
-}
-*/
 
 /// Triangle wave modulated by an ADSR.
 pub fn adsr_triangle(state: &SharedMidiState) -> Box<dyn AudioUnit> {
@@ -240,7 +223,6 @@ pub fn acoustic_grand_piano(state: &SharedMidiState) -> Box<dyn AudioUnit> {
     state.assemble_unpitched_sound(synth, piano_adsr.boxed(state))
 }
 
-
 pub fn xylophone(state: &SharedMidiState) -> Box<dyn AudioUnit> {
     let xylophone_adsr = Adsr {
         attack: 0.01,
@@ -255,20 +237,16 @@ pub fn xylophone(state: &SharedMidiState) -> Box<dyn AudioUnit> {
     let a4 = 0.07;
     let a5 = 0.03;
 
-    let bar_modes =
-        (mul(1.0)    >> sine() * a1)
-            & (mul(3.998) >> sine() * a2)
-            & (mul(10.0)  >> sine() * a3)
-            & (mul(20.0)  >> sine() * a4)
-            & (mul(27.0)  >> sine() * a5)
+    let bar_modes = (mul(1.0) >> sine() * a1)
+        & (mul(3.998) >> sine() * a2)
+        & (mul(10.0) >> sine() * a3)
+        & (mul(20.0) >> sine() * a4)
+        & (mul(27.0) >> sine() * a5)
             >> highshelf_hz(2500.0, db_amp(1.5), 0.2)
             >> lowpass_hz(6500.0, 0.7)
             >> dcblock::<f64>();
 
-    let tone =
-        bar_modes
-            >> (pass() ^ (highpass_hz(3000.0, 0.7) * 0.18))
-            >> join::<U2>();
+    let tone = bar_modes >> (pass() ^ (highpass_hz(3000.0, 0.7) * 0.18)) >> join::<U2>();
 
     let body = (pass() * 0.7)
         & (0.18 * resonator_hz(800.0, 85.0))
@@ -277,12 +255,44 @@ pub fn xylophone(state: &SharedMidiState) -> Box<dyn AudioUnit> {
         & (0.07 * resonator_hz(3200.0, 130.0));
 
     let synth = Box::new(
-        tone
-            >> body
-            >> highpass_hz(30.0, 0.7)
-            >> dcblock::<f64>()
-            >> limiter(0.002, 0.12)
+        tone >> body >> highpass_hz(30.0, 0.7) >> dcblock::<f64>() >> limiter(0.002, 0.12),
     );
 
     state.assemble_unpitched_sound(synth, xylophone_adsr.boxed(state))
+}
+
+/// Sharp clavichord sound
+pub fn clavichord_sharp(state: &SharedMidiState) -> Box<dyn AudioUnit> {
+    let adsr = Adsr {
+        attack: 0.005,
+        decay: 0.2,
+        sustain: 0.0,
+        release: 0.5,
+    };
+    state.assemble_unpitched_sound(basic_pluck(), adsr.boxed(state))
+}
+
+/// Soft clavichord sound
+pub fn clavichord_soft(state: &SharedMidiState) -> Box<dyn AudioUnit> {
+    let adsr = Adsr {
+        attack: 0.01,
+        decay: 0.2,
+        sustain: 0.1,
+        release: 0.5,
+    };
+    state.assemble_unpitched_sound(basic_pluck(), adsr.boxed(state))
+}
+
+fn basic_pluck() -> Box<dyn AudioUnit> {
+    Box::new((square() & saw()) >> lowpass_hz::<f32>(3000.0, 0.5))
+}
+
+pub fn guitarish(state: &SharedMidiState) -> Box<dyn AudioUnit> {
+    let adsr = Adsr {
+        attack: 0.005,
+        decay: 1.0,
+        sustain: 0.1,
+        release: 0.5,
+    };
+    state.assemble_unpitched_sound(basic_pluck(), adsr.boxed(state))
 }
