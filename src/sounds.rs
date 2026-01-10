@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use crate::sound_builders::{Adsr, ProgramTable, simple_sound};
 use crate::{SharedMidiState, program_table};
+use fundsp::net::Net;
 use fundsp::prelude::{
     AudioUnit, U2, brown, db_amp, dcblock, highshelf_hz, join, limiter, lowpass_hz, mul, pass,
     resonator_hz,
 };
 use fundsp::prelude64::{
-    dsf_saw, dsf_square, highpass_hz, organ, pulse, saw, sine, soft_saw, square, triangle,
+    dsf_saw, dsf_square, highpass_hz, organ, pulse, saw, shared, sine, soft_saw, square, triangle,
+    var,
 };
 
 /// Returns a `ProgramTable` containing all prepared sounds in this file.
@@ -30,8 +32,9 @@ pub fn options() -> ProgramTable {
         ("Moog Pulse", moog_pulse),
         ("Acoustic Grand Piano", acoustic_grand_piano),
         ("Xylophone", xylophone),
-        ("Clavichord", clavichord_sharp),
-        ("Guitarish?", clavichord_soft)
+        ("Clavichord (Sharp)", clavichord_sharp),
+        ("Clavichord (Soft)", clavichord_soft),
+        ("Guitar-ish", guitarish)
     ]
 }
 
@@ -50,7 +53,10 @@ pub fn favorites() -> ProgramTable {
         ("Moog Square", moog_square),
         ("Moog Pulse", moog_pulse),
         ("Acoustic Grand Piano", acoustic_grand_piano),
-        ("Xylophone", xylophone)
+        ("Xylophone", xylophone),
+        ("Clavichord (Sharp)", clavichord_sharp),
+        ("Clavichord (Soft)", clavichord_soft),
+        ("Guitar-ish", guitarish)
     ]
 }
 
@@ -287,12 +293,16 @@ fn basic_pluck() -> Box<dyn AudioUnit> {
     Box::new((square() & saw()) >> lowpass_hz::<f32>(3000.0, 0.5))
 }
 
+/// An attempt at an acoustic-guitar inspired sound.
 pub fn guitarish(state: &SharedMidiState) -> Box<dyn AudioUnit> {
     let adsr = Adsr {
         attack: 0.005,
         decay: 1.0,
-        sustain: 0.1,
+        sustain: 0.0,
         release: 0.5,
     };
-    state.assemble_unpitched_sound(basic_pluck(), adsr.boxed(state))
+    let mix = Net::stack(state.bent_pitch(), Net::wrap(Box::new(var(&shared(0.3)))))
+        >> pulse()
+        >> lowpass_hz::<f32>(3000.0, 0.5);
+    state.assemble_pitched_sound(Box::new(mix), adsr.boxed(state))
 }
