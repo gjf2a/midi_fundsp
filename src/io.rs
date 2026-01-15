@@ -563,6 +563,10 @@ impl<const N: usize> MonoPlayer<N> {
     fn claim_state(&mut self, state: ModNumC<usize, N>) -> usize {
         let next = state.a();
         self.next = state + 1;
+        if let Some(pitch) = self.recent_pitches[next] {
+            self.release(next);
+            self.pitch2state[pitch as usize] = None;
+        }
         next
     }
 
