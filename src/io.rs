@@ -253,7 +253,7 @@ fn inner_start_output_thread<const N: usize>(
     });
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 /// Represents whether a sound should go to the left, right, or both speakers.
 pub enum Speaker {
     Left,
