@@ -171,7 +171,7 @@ impl SharedMidiState {
     }
 }
 
-/// If a given `MidiMsg` object is a `NoteOn` or `NoteOff` message, it returns 
+/// If a given `MidiMsg` object is a `NoteOn` or `NoteOff` message, it returns
 /// the note and velocity values of that message.
 pub fn note_velocity_from(msg: &MidiMsg) -> Option<(u8, u8)> {
     if let MidiMsg::ChannelVoice { channel: _, msg } = msg {

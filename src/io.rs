@@ -17,7 +17,9 @@ use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{InputBuild, shortcut::input};
 use std::sync::{Arc, Mutex};
 
-use crate::{NUM_MIDI_VALUES, SharedMidiState, SynthFunc, note_velocity_from, sound_builders::ProgramTable};
+use crate::{
+    NUM_MIDI_VALUES, SharedMidiState, SynthFunc, note_velocity_from, sound_builders::ProgramTable,
+};
 
 #[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
