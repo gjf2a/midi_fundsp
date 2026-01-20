@@ -39,6 +39,7 @@ use fundsp::net::Net;
 use fundsp::prelude::{An, AudioUnit, FrameMul};
 use fundsp::prelude64::{shared, var};
 use fundsp::shared::{Shared, Var};
+use midi_msg::MidiMsg;
 
 /// MIDI values for pitch and velocity range from 0 to 127.
 pub const MAX_MIDI_VALUE: u8 = 127;
@@ -167,6 +168,20 @@ impl SharedMidiState {
     /// Converts MIDI pitch-bend message to +/- 1 semitone using [this algorithm](https://sites.uci.edu/camp2014/2014/04/30/managing-midi-pitchbend-messages/).
     pub fn bend(&self, bend: u16) {
         self.pitch_bend.set_value(pitch_bend_factor(bend));
+    }
+}
+
+/// If a given `MidiMsg` object is a `NoteOn` or `NoteOff` message, it returns 
+/// the note and velocity values of that message.
+pub fn note_velocity_from(msg: &MidiMsg) -> Option<(u8, u8)> {
+    if let MidiMsg::ChannelVoice { channel: _, msg } = msg {
+        match msg {
+            midi_msg::ChannelVoiceMsg::NoteOn { note, velocity }
+            | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => Some((*note, *velocity)),
+            _ => None,
+        }
+    } else {
+        None
     }
 }
 

@@ -1,3 +1,6 @@
+# 0.7.1
+  * Factored the functionality  out of `SynthMsg::note_velocity()` into the `note_velocity_from()` function. 
+
 # 0.7.0
   * Added `Eq` and `PartialEq` traits to `enum Speaker`
 

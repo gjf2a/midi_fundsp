@@ -17,7 +17,7 @@ use midir::{Ignore, MidiInput, MidiInputPort};
 use read_input::{InputBuild, shortcut::input};
 use std::sync::{Arc, Mutex};
 
-use crate::{NUM_MIDI_VALUES, SharedMidiState, SynthFunc, sound_builders::ProgramTable};
+use crate::{NUM_MIDI_VALUES, SharedMidiState, SynthFunc, note_velocity_from, sound_builders::ProgramTable};
 
 #[derive(Clone, Debug)]
 /// Packages a [`MidiMsg`](https://crates.io/crates/midi-msg) with a designated `Speaker` to output the sound
@@ -73,15 +73,7 @@ impl SynthMsg {
 
     /// Returns MIDI note and velocity information if pertinent
     pub fn note_velocity(&self) -> Option<(u8, u8)> {
-        if let MidiMsg::ChannelVoice { channel: _, msg } = self.msg {
-            match msg {
-                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity }
-                | midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => Some((note, velocity)),
-                _ => None,
-            }
-        } else {
-            None
-        }
+        note_velocity_from(&self.msg)
     }
 }
 
